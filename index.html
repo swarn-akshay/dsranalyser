@@ -1,1662 +1,1489 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DSR Analytics Dashboard</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- XLSX library for reading and writing Excel/CSV files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        /* ================================================
+           CSS CUSTOM PROPERTIES — DARK / LIGHT THEMES
+        ================================================ */
+        :root {
+            --bg-base:      #07090f;
+            --bg-primary:   #0c1018;
+            --bg-secondary: #111827;
+            --bg-tertiary:  #161d2e;
+            --bg-card:      rgba(255,255,255,0.035);
+            --bg-card-h:    rgba(255,255,255,0.055);
+            --border:       rgba(255,255,255,0.07);
+            --border-acc:   rgba(79,149,255,0.28);
+            --txt-primary:  #e2e8f5;
+            --txt-secondary:#8b9cbf;
+            --txt-muted:    #3d4d6a;
+            --acc-blue:     #4f95ff;
+            --acc-cyan:     #00d4ff;
+            --acc-green:    #00e599;
+            --acc-orange:   #ff9f43;
+            --acc-red:      #ff6b6b;
+            --acc-purple:   #b56bff;
+            --tbl-head:     #0e1624;
+            --tbl-even:     rgba(255,255,255,0.018);
+            --tbl-hover:    rgba(79,149,255,0.07);
+            --tbl-border:   rgba(255,255,255,0.055);
+            --shadow-glow:  0 0 40px rgba(79,149,255,0.12);
+            --radius:       13px;
+            --ease:         cubic-bezier(0.4,0,0.2,1);
+        }
+        [data-theme="light"] {
+            --bg-base:      #e8edf5;
+            --bg-primary:   #f0f4fb;
+            --bg-secondary: #ffffff;
+            --bg-tertiary:  #f7faff;
+            --bg-card:      rgba(255,255,255,0.85);
+            --bg-card-h:    rgba(255,255,255,0.98);
+            --border:       rgba(0,0,0,0.07);
+            --border-acc:   rgba(59,130,246,0.35);
+            --txt-primary:  #1a202c;
+            --txt-secondary:#4a5568;
+            --txt-muted:    #a0aec0;
+            --acc-blue:     #2563eb;
+            --acc-cyan:     #0891b2;
+            --acc-green:    #059669;
+            --acc-orange:   #d97706;
+            --acc-red:      #dc2626;
+            --tbl-head:     #1e293b;
+            --tbl-even:     rgba(0,0,0,0.018);
+            --tbl-hover:    rgba(59,130,246,0.05);
+            --tbl-border:   rgba(0,0,0,0.055);
+        }
+
+        /* ================================================
+           BASE
+        ================================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8f9fa;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-base);
+            color: var(--txt-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            line-height: 1.5;
         }
-        .container {
-            max-width: 1400px;
+
+        /* Animated ambient background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 15% 5%,  rgba(79,149,255,0.075) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 40% at 85% 90%, rgba(0,212,255,0.045) 0%, transparent 50%),
+                radial-gradient(ellipse 40% 60% at 50% 50%, rgba(181,107,255,0.025) 0%, transparent 65%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        [data-theme="light"] body::before {
+            background:
+                radial-gradient(ellipse 70% 50% at 15% 5%,  rgba(59,130,246,0.06) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 40% at 85% 90%, rgba(8,145,178,0.04)  0%, transparent 50%);
+        }
+
+        .page-wrap {
+            position: relative;
+            z-index: 1;
+            max-width: 1520px;
             margin: 0 auto;
+            padding: 22px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
         }
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out;
+
+        /* ================================================
+           GLASS CARD
+        ================================================ */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: border-color .25s var(--ease), background .25s var(--ease), box-shadow .25s var(--ease);
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        .card:hover { border-color: var(--border-acc); }
+
+        /* ================================================
+           HEADER
+        ================================================ */
+        .dash-header {
+            background: linear-gradient(135deg, #07122b 0%, #0c1e4a 45%, #071022 100%);
+            border: 1px solid rgba(79,149,255,0.18);
+            border-radius: var(--radius);
+            padding: 26px 30px;
+            position: relative;
+            overflow: hidden;
         }
-        .tab-content {
-            display: none;
+        [data-theme="light"] .dash-header {
+            background: linear-gradient(135deg, #1e3a6e 0%, #2563eb 50%, #1e3a6e 100%);
         }
-        .tab-content.active {
-            display: block;
+        .dash-header::before {
+            content: '';
+            position: absolute;
+            top: -80%; left: -15%;
+            width: 35%; height: 260%;
+            background: linear-gradient(90deg, transparent, rgba(79,149,255,0.09), transparent);
+            transform: skewX(-22deg);
+            animation: hdrSheen 5s ease-in-out infinite;
         }
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
+        @keyframes hdrSheen {
+            0%,100%{ opacity:0; left:-20% }
+            50%{ opacity:1; left:125% }
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .hdr-grid {
+            display: grid;
+            grid-template-columns: 54px 1fr auto;
+            gap: 20px;
+            align-items: center;
         }
-        table {
-            border-collapse: collapse;
-            width: 100%;
+        .hdr-logo {
+            width: 54px; height: 54px;
+            background: linear-gradient(135deg, #3b72f0, #00d4ff);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px;
+            box-shadow: 0 6px 24px rgba(79,149,255,0.45);
+            flex-shrink: 0;
         }
-        th, td {
-            border: 1px solid #dee2e6;
-            padding: 8px;
-            text-align: left;
+        .hdr-title {
+            font-size: 25px; font-weight: 800; letter-spacing: -.5px;
+            background: linear-gradient(120deg, #ffffff 0%, #9eceff 60%, #00d4ff 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
+        .hdr-sub { font-size: 12.5px; color: rgba(255,255,255,0.45); margin-top:3px; }
+        .hdr-actions { display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
+
+        /* ================================================
+           BUTTONS
+        ================================================ */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13.5px; font-weight: 600;
+            cursor: pointer; border: none;
+            transition: all .22s var(--ease);
+            white-space: nowrap;
+            position: relative; overflow: hidden;
+        }
+        .btn::after {
+            content: ''; position: absolute; inset: 0;
+            background: rgba(255,255,255,0);
+            transition: background .18s;
+        }
+        .btn:hover::after { background: rgba(255,255,255,0.08); }
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled { opacity:.38; cursor:not-allowed; pointer-events:none; }
+
+        .btn-blue   { background:linear-gradient(135deg,#2d66e8,#4f95ff); color:#fff; box-shadow:0 4px 18px rgba(59,102,240,.35); }
+        .btn-blue:hover { box-shadow:0 6px 24px rgba(59,102,240,.5); transform:translateY(-1px); }
+        .btn-green  { background:linear-gradient(135deg,#059669,#10b981); color:#fff; box-shadow:0 4px 18px rgba(16,185,129,.3); }
+        .btn-green:hover { box-shadow:0 6px 24px rgba(16,185,129,.45); transform:translateY(-1px); }
+        .btn-purple { background:linear-gradient(135deg,#7c3aed,#b56bff); color:#fff; box-shadow:0 4px 18px rgba(181,107,255,.28); }
+        .btn-purple:hover { box-shadow:0 6px 24px rgba(181,107,255,.42); transform:translateY(-1px); }
+        .btn-ghost {
+            background:rgba(255,255,255,0.08); color:#fff;
+            border:1px solid rgba(255,255,255,0.14);
+        }
+        .btn-ghost:hover { background:rgba(255,255,255,0.14); }
+
+        [data-theme="light"] .btn-ghost { color:var(--txt-primary); background:rgba(0,0,0,0.06); border-color:rgba(0,0,0,0.1); }
+
+        /* Theme toggle */
+        .theme-btn {
+            width:38px; height:38px; border-radius:10px;
+            background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.14);
+            display:flex; align-items:center; justify-content:center;
+            cursor:pointer; transition:all .22s var(--ease); font-size:17px;
+        }
+        .theme-btn:hover { background:rgba(255,255,255,0.16); }
+        [data-theme="light"] .theme-btn { background:rgba(0,0,0,0.06); border-color:rgba(0,0,0,0.1); }
+
+        /* ================================================
+           LOADING
+        ================================================ */
+        .spinner {
+            width:19px; height:19px;
+            border:2.5px solid rgba(255,255,255,0.2);
+            border-top-color:#fff;
+            border-radius:50%;
+            animation:spin .75s linear infinite;
+            display:inline-block; flex-shrink:0;
+        }
+        @keyframes spin { to { transform:rotate(360deg) } }
+
+        .loading-pill {
+            display:flex; align-items:center; gap:9px;
+            background:rgba(255,255,255,0.09);
+            border:1px solid rgba(255,255,255,0.12);
+            padding:8px 14px; border-radius:9px;
+            font-size:13px; color:rgba(255,255,255,0.8);
+            animation:pulsePill 1.5s ease-in-out infinite;
+        }
+        @keyframes pulsePill { 0%,100%{opacity:1} 50%{opacity:.7} }
+
+        /* ================================================
+           FORM CONTROLS
+        ================================================ */
+        .lbl {
+            display:block;
+            font-size:11.5px; font-weight:700;
+            letter-spacing:.08em; text-transform:uppercase;
+            color:var(--txt-secondary); margin-bottom:9px;
+        }
+        .form-select {
+            width:100%; padding:11px 38px 11px 14px;
+            background:var(--bg-tertiary); border:1px solid var(--border);
+            border-radius:10px; color:var(--txt-primary);
+            font-family:'Outfit',sans-serif; font-size:14px;
+            cursor:pointer; appearance:none;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b9cbf' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:right 14px center;
+            transition:all .22s var(--ease);
+        }
+        .form-select:focus { outline:none; border-color:var(--acc-blue); box-shadow:0 0 0 3px rgba(79,149,255,.14); }
+        .form-select:disabled { opacity:.45; cursor:not-allowed; }
+        [data-theme="light"] .form-select { background-color:#fff; }
+
+        /* ================================================
+           UPLOAD ZONE
+        ================================================ */
+        .upload-zone {
+            border:2px dashed var(--border);
+            border-radius:12px; padding:22px 18px;
+            text-align:center; cursor:pointer;
+            transition:all .22s var(--ease);
+            background:var(--bg-tertiary);
+            position:relative; overflow:hidden;
+        }
+        .upload-zone:hover, .upload-zone.drag-over { border-color:var(--acc-blue); background:rgba(79,149,255,.04); }
+        .upload-zone.has-file { border-color:var(--acc-green); background:rgba(0,229,153,.04); border-style:solid; }
+        .upload-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+        .upload-icon { font-size:26px; margin-bottom:8px; display:block; transition:transform .3s var(--ease); }
+        .upload-zone:hover .upload-icon { transform:scale(1.12) translateY(-2px); }
+        .upload-filename { font-size:13px; font-weight:700; color:var(--acc-green); word-break:break-all; }
+        .upload-hint { font-size:12px; color:var(--txt-muted); margin-top:4px; }
+
+        /* ================================================
+           TAB NAV
+        ================================================ */
+        .tab-nav-scroller {
+            overflow-x:auto; -webkit-overflow-scrolling:touch;
+        }
+        .tab-nav-scroller::-webkit-scrollbar { height:3px; }
+        .tab-nav-scroller::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+        .tab-nav { display:flex; gap:4px; padding:6px; white-space:nowrap; }
+
+        .tab-btn {
+            display:inline-flex; align-items:center; gap:7px;
+            padding:9px 16px; border-radius:9px;
+            font-family:'Outfit',sans-serif; font-size:13.5px; font-weight:500;
+            cursor:pointer; border:1px solid transparent;
+            color:var(--txt-secondary); background:transparent;
+            transition:all .22s var(--ease);
+        }
+        .tab-btn:hover { color:var(--txt-primary); background:rgba(255,255,255,0.05); }
+        .tab-btn.active {
+            color:#fff;
+            background:linear-gradient(135deg,#2d66e8,#4f95ff);
+            border-color:rgba(79,149,255,.3);
+            box-shadow:0 4px 18px rgba(79,149,255,.32);
+            font-weight:700;
+        }
+        .tab-badge {
+            display:inline-flex; align-items:center; justify-content:center;
+            min-width:20px; height:18px; padding:0 6px;
+            border-radius:100px; font-size:10px; font-weight:700;
+            background:rgba(255,255,255,.14);
+        }
+        .tab-btn.active .tab-badge { background:rgba(255,255,255,.22); }
+        [data-theme="light"] .tab-btn:hover { background:rgba(0,0,0,.05); }
+
+        /* ================================================
+           TAB CONTENT
+        ================================================ */
+        .tab-content { display:none; animation:tabIn .28s ease-out; }
+        .tab-content.active { display:block; }
+        @keyframes tabIn { from{opacity:0;transform:translateY(9px)} to{opacity:1;transform:translateY(0)} }
+
+        /* ================================================
+           TABLES
+        ================================================ */
+        .tbl-wrap {
+            overflow-x:auto; border-radius:12px;
+            border:1px solid var(--tbl-border);
+        }
+        .tbl-wrap::-webkit-scrollbar { height:6px; }
+        .tbl-wrap::-webkit-scrollbar-track { background:var(--bg-tertiary); }
+        .tbl-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:6px; }
+        .tbl-wrap::-webkit-scrollbar-thumb:hover { background:var(--txt-muted); }
+
+        table { border-collapse:collapse; width:100%; font-size:13px; }
+
         th {
-            background-color: #4e73df;
-            color: white;
-            font-weight: bold;
+            background:var(--tbl-head);
+            color:var(--txt-secondary);
+            font-family:'Outfit',sans-serif; font-weight:700;
+            font-size:11px; letter-spacing:.075em; text-transform:uppercase;
+            padding:11px 15px; text-align:left;
+            border-bottom:1px solid var(--tbl-border);
+            position:sticky; top:0; z-index:10;
+            white-space:nowrap; cursor:pointer; user-select:none;
+            transition:color .18s;
         }
-        tr:nth-child(even) {
-            background-color: #f8f9fa;
+        th:hover { color:var(--txt-primary); }
+        th.sort-asc::after  { content:' ↑'; font-size:10px; opacity:.75; }
+        th.sort-desc::after { content:' ↓'; font-size:10px; opacity:.75; }
+
+        [data-theme="light"] th { background:#1e293b; color:rgba(255,255,255,.65); }
+
+        td {
+            padding:9px 15px;
+            border-bottom:1px solid var(--tbl-border);
+            color:var(--txt-primary);
+            font-family:'IBM Plex Mono',monospace; font-size:12.5px;
         }
-        .filter-input {
-            width: 100%;
-            padding: 4px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
+        td:first-child { font-family:'Outfit',sans-serif; font-size:13px; }
+
+        tr:nth-child(even) td { background:var(--tbl-even); }
+        tr:hover td { background:var(--tbl-hover); }
+
+        tr.total-row td {
+            background:rgba(79,149,255,.09) !important;
+            border-top:2px solid rgba(79,149,255,.28);
+            font-weight:700; color:var(--acc-blue);
+            font-family:'IBM Plex Mono',monospace;
         }
-        .status-message {
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
+        tr.total-row td:first-child { font-family:'Outfit',sans-serif; }
+
+        /* Sticky first col (replacement table) */
+        .sticky-col {
+            position:sticky; left:0; z-index:5;
+            background:var(--bg-secondary);
+            border-right:1px solid var(--border-acc);
         }
-        .status-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        tr:nth-child(even) .sticky-col { background:var(--bg-tertiary); }
+        tr:hover .sticky-col           { background:var(--tbl-hover); }
+        tr.total-row .sticky-col       { background:rgba(79,149,255,.09) !important; }
+        th.sticky-col                  { background:#0a1020; z-index:15; }
+        [data-theme="light"] th.sticky-col { background:#1e293b; }
+        [data-theme="light"] .sticky-col   { background:#fff; }
+        [data-theme="light"] tr:nth-child(even) .sticky-col { background:#f7faff; }
+
+        /* Numeric cell colors */
+        td.n-pos  { color:var(--acc-cyan); font-weight:600; }
+        td.n-zero { color:var(--txt-muted); }
+
+        /* ================================================
+           TOAST NOTIFICATIONS
+        ================================================ */
+        #toast-root {
+            position:fixed; top:22px; right:22px; z-index:9999;
+            display:flex; flex-direction:column; gap:9px;
+            pointer-events:none;
         }
-        .status-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .toast {
+            display:flex; align-items:center; gap:11px;
+            padding:13px 17px;
+            background:var(--bg-secondary);
+            border:1px solid var(--border);
+            border-radius:12px;
+            box-shadow:0 10px 36px rgba(0,0,0,.32);
+            min-width:270px; max-width:370px;
+            pointer-events:all;
+            animation:tSlide .4s cubic-bezier(.34,1.56,.64,1);
+            font-size:13.5px; font-weight:500;
+        }
+        .toast.out { animation:tFade .3s ease forwards; }
+        @keyframes tSlide { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
+        @keyframes tFade  { to{opacity:0;transform:translateX(100%)} }
+        .toast-icon { font-size:17px; flex-shrink:0; }
+        .toast-text { flex:1; color:var(--txt-primary); }
+        .toast.success { border-left:4px solid var(--acc-green); }
+        .toast.error   { border-left:4px solid var(--acc-red);   }
+        .toast.info    { border-left:4px solid var(--acc-blue);  }
+
+        /* ================================================
+           SECTION HEADER
+        ================================================ */
+        .sec-hdr {
+            display:flex; align-items:flex-start; justify-content:space-between;
+            margin-bottom:18px; flex-wrap:wrap; gap:12px;
+        }
+        .sec-title  { font-size:17px; font-weight:700; color:var(--txt-primary); }
+        .sec-sub    { font-size:12px; color:var(--txt-secondary); margin-top:3px; }
+
+        /* ================================================
+           SEARCH INPUT
+        ================================================ */
+        .search-wrap { position:relative; }
+        .search-wrap::before {
+            content:'⌕'; position:absolute; left:11px; top:50%;
+            transform:translateY(-50%);
+            color:var(--txt-muted); font-size:17px; pointer-events:none;
+            line-height:1;
+        }
+        .search-inp {
+            padding:9px 14px 9px 33px;
+            background:var(--bg-tertiary); border:1px solid var(--border);
+            border-radius:9px; color:var(--txt-primary);
+            font-family:'Outfit',sans-serif; font-size:13.5px;
+            transition:all .22s var(--ease); width:230px;
+        }
+        .search-inp:focus { outline:none; border-color:var(--acc-blue); box-shadow:0 0 0 3px rgba(79,149,255,.1); }
+        [data-theme="light"] .search-inp { background:#fff; }
+
+        /* ================================================
+           BADGE
+        ================================================ */
+        .badge {
+            display:inline-flex; align-items:center; gap:4px;
+            padding:4px 10px; border-radius:100px;
+            font-size:12px; font-weight:700;
+        }
+        .badge-blue   { background:rgba(79,149,255,.13); color:var(--acc-blue); }
+        .badge-green  { background:rgba(0,229,153,.1);   color:var(--acc-green); }
+
+        /* ================================================
+           YEAR SUB-SECTION
+        ================================================ */
+        .yr-sub { margin-bottom:26px; }
+        .yr-sub-title {
+            font-size:12px; font-weight:700; letter-spacing:.1em;
+            text-transform:uppercase; color:var(--txt-secondary);
+            margin-bottom:14px;
+            display:flex; align-items:center; gap:8px;
+        }
+        .yr-sub-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+        /* ================================================
+           MODAL
+        ================================================ */
+        .modal-ov {
+            position:fixed; inset:0;
+            background:rgba(0,0,0,.72);
+            backdrop-filter:blur(10px);
+            z-index:9990; display:flex;
+            align-items:center; justify-content:center;
+            animation:fadeOv .2s ease;
+        }
+        .modal-ov.hidden { display:none; }
+        @keyframes fadeOv { from{opacity:0} to{opacity:1} }
+        .modal-box {
+            background:var(--bg-secondary);
+            border:1px solid var(--border);
+            border-radius:18px; padding:32px;
+            width:420px; max-width:calc(100vw - 32px);
+            box-shadow:0 28px 80px rgba(0,0,0,.55);
+            animation:mSlide .32s cubic-bezier(.34,1.2,.64,1);
+            position:relative;
+        }
+        @keyframes mSlide { from{opacity:0;transform:scale(.9)translateY(20px)} to{opacity:1;transform:scale(1)translateY(0)} }
+        .modal-title {
+            font-size:20px; font-weight:800; margin-bottom:24px;
+            background:linear-gradient(135deg, var(--txt-primary), var(--acc-blue));
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+        }
+        .modal-row {
+            display:flex; align-items:center; gap:14px;
+            padding:12px 0; border-bottom:1px solid var(--border);
+        }
+        .modal-row:last-child { border-bottom:none; }
+        .modal-ico {
+            width:38px; height:38px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; flex-shrink:0;
+        }
+        .modal-close {
+            position:absolute; top:14px; right:14px;
+            width:30px; height:30px; border-radius:8px;
+            background:rgba(255,255,255,.07); border:none;
+            color:var(--txt-secondary); font-size:16px;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            transition:all .2s;
+        }
+        .modal-close:hover { background:rgba(255,107,107,.18); color:var(--acc-red); }
+
+        /* ================================================
+           SCROLLBARS GLOBAL
+        ================================================ */
+        ::-webkit-scrollbar { width:7px; height:6px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--border); border-radius:8px; }
+        ::-webkit-scrollbar-thumb:hover { background:var(--txt-muted); }
+
+        /* ================================================
+           RESPONSIVE
+        ================================================ */
+        .ctrl-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+        @media(max-width:1024px){ .ctrl-grid{ grid-template-columns:1fr 1fr; } }
+        @media(max-width:640px) {
+            .ctrl-grid{ grid-template-columns:1fr; }
+            .page-wrap{ padding:12px; gap:14px; }
+            .hdr-grid{ grid-template-columns:1fr; gap:14px; }
+            .hdr-actions{ flex-wrap:wrap; }
+            .search-inp{ width:100%; }
+            .sec-hdr{ flex-direction:column; align-items:flex-start; }
         }
     </style>
 </head>
-<body class="p-4 bg-gray-100">
-    <div class="container bg-white rounded-xl shadow-lg p-6 space-y-6">
-        <!-- Header -->
-        <header class="bg-blue-600 text-white rounded-lg p-4 flex justify-between items-center">
+<body>
+
+<!-- TOAST ROOT -->
+<div id="toast-root"></div>
+
+<div class="page-wrap">
+
+    <!-- ── HEADER ── -->
+    <header class="dash-header">
+        <div class="hdr-grid">
+            <div class="hdr-logo">📊</div>
             <div>
-                <h1 class="text-2xl font-bold">DSR Analytics Dashboard</h1>
-                <p class="text-blue-100">Comprehensive DSR Analysis Tool</p>
+                <div class="hdr-title">DSR Analytics Dashboard</div>
+                <div class="hdr-sub">Comprehensive DSR Analysis Tool · Year-wise Summaries · Export Ready</div>
             </div>
-            <div class="flex items-center space-x-4">
-                <div id="loading-indicator" class="hidden">
-                    <div class="loading mr-2"></div>
-                    <span id="loading-text">Processing</span>
+            <div class="hdr-actions">
+                <div id="loading-pill" class="loading-pill hidden">
+                    <div class="spinner"></div>
+                    <span id="loading-text">Processing…</span>
                 </div>
-                <button id="about-btn" class="bg-transparent border border-white text-white font-bold py-2 px-4 rounded-lg hover:bg-white hover:text-blue-600 transition duration-300">
-                    About
-                </button>
-            </div>
-        </header>
-
-        <!-- Status Message -->
-        <div id="status-message" class="status-message hidden"></div>
-
-        <!-- Control Panel -->
-        <div class="bg-white border border-gray-300 rounded-lg p-4">
-            <h2 class="text-xl font-bold text-gray-700 mb-4">Data Controls</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- File Upload -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Data Source</label>
-                    <div class="border border-gray-300 rounded-lg p-3 bg-gray-50 mb-2 min-h-[50px]">
-                        <span id="file-name" class="text-gray-500">No file selected</span>
-                    </div>
-                    <label for="file-upload" class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg w-full text-center block transition duration-300">
-                        Browse DSR File
-                    </label>
-                    <input id="file-upload" type="file" class="hidden" accept=".xlsx,.xls,.csv">
-                </div>
-
-                <!-- Month Filter -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Time Filter</label>
-                    <select id="month-filter" class="w-full border border-gray-300 rounded-lg p-2" disabled>
-                        <option value="all">All Months</option>
-                    </select>
-                </div>
-
-                <!-- Action Buttons -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Actions</label>
-                    <div class="space-y-2">
-                        <button id="generate-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300" disabled>
-                            Generate Summaries
-                        </button>
-                        <button id="export-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300" disabled>
-                            Export to Excel
-                        </button>
-                        <button id="daily-report-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300" disabled>
-                            Generate Daily DSR Report
-                        </button>
-                    </div>
-                </div>
+                <button id="theme-btn" class="theme-btn" title="Toggle theme">☀️</button>
+                <button id="about-btn" class="btn btn-ghost" style="gap:6px;">ℹ️ About</button>
             </div>
         </div>
+    </header>
 
-        <!-- Tabs Navigation -->
-        <div class="border-b border-gray-200">
-            <nav class="-mb-px flex space-x-8">
-                <button class="tab-button py-2 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600" data-tab="top-issues">
-                    Top Issues
-                </button>
-                <button class="tab-button py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="monthly-summary">
-                    Monthly Summary
-                </button>
-                <button class="tab-button py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="daily-summary">
-                    Daily Summary
-                </button>
-                <button class="tab-button py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="replacement-summary">
-                    Replacement Summary
-                </button>
-            </nav>
+    <!-- ── CONTROLS ── -->
+    <div class="card" style="padding:24px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-secondary);margin-bottom:20px;">
+            ⚙️ &nbsp;Data Controls
         </div>
+        <div class="ctrl-grid">
 
-        <!-- Tab Contents -->
-        <div id="dashboard-content" class="space-y-6" style="display: none;">
-            <!-- Top Issues Tab -->
-            <div id="top-issues" class="tab-content active">
-                <div class="bg-white border border-gray-300 rounded-lg p-4">
-                    <h2 class="text-xl font-bold text-gray-700 mb-4">Top 10 Issues</h2>
-                    <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4" id="top-issues-filters">
-                        <!-- Filters will be added dynamically -->
+            <!-- File Upload -->
+            <div>
+                <label class="lbl">📁 Data Source</label>
+                <div class="upload-zone" id="upload-zone">
+                    <input type="file" id="file-upload" accept=".xlsx,.xls,.csv">
+                    <div id="upload-idle">
+                        <span class="upload-icon">📂</span>
+                        <div style="font-size:13.5px;font-weight:600;color:var(--txt-secondary);">Drop DSR file here</div>
+                        <div class="upload-hint">or click to browse &nbsp;·&nbsp; .xlsx · .xls · .csv</div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table id="top-issues-table">
-                            <thead>
-                                <tr>
-                                    <th>Issue Category</th>
-                                    <th>Issue Count</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Table rows will be inserted here by JavaScript -->
-                            </tbody>
-                        </table>
+                    <div id="upload-ok" style="display:none;">
+                        <span class="upload-icon">✅</span>
+                        <div id="file-name-show" class="upload-filename"></div>
+                        <div class="upload-hint" style="margin-top:6px;">File loaded — ready to generate</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Monthly Summary Tab -->
-            <div id="monthly-summary" class="tab-content">
-                <div class="bg-white border border-gray-300 rounded-lg p-4">
-                    <h2 class="text-xl font-bold text-gray-700 mb-4">Monthly Summary</h2>
-                    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4" id="monthly-summary-filters">
-                        <!-- Filters will be added dynamically -->
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table id="monthly-summary-table">
-                            <thead>
-                                <tr>
-                                    <th>Month</th>
-                                    <th>In Process</th>
-                                    <th>Pending</th>
-                                    <th>Resolved</th>
-                                    <th>Job Total</th>
-                                    <th>Part Replaced Service</th>
-                                    <th>MSIL</th>
-                                    <th>OUT</th>
-                                    <th>Video</th>
-                                    <th>CRF</th>
-                                    <th>FTIR</th>
-                                    <th>Issue Type CK</th>
-                                    <th>Issue Type HW</th>
-                                    <th>Issue Type SW</th>
-                                    <th>Logs & Video Suspected</th>
-                                    <th>Received</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Table rows will be inserted here by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
+            <!-- Time Filter -->
+            <div>
+                <label class="lbl" for="month-filter">📅 Time Filter</label>
+                <select id="month-filter" class="form-select" disabled>
+                    <option value="all">All Months</option>
+                </select>
+                <div style="margin-top:9px;font-size:12px;color:var(--txt-muted);line-height:1.5;">
+                    Optionally filter summaries by a specific month period.
                 </div>
             </div>
 
-            <!-- Daily Summary Tab -->
-            <div id="daily-summary" class="tab-content">
-                <div class="bg-white border border-gray-300 rounded-lg p-4">
-                    <h2 class="text-xl font-bold text-gray-700 mb-4">Daily Summary</h2>
-                    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4" id="daily-summary-filters">
-                        <!-- Filters will be added dynamically -->
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table id="daily-summary-table">
-                            <thead>
-                                <tr>
-                                    <th>Month</th>
-                                    <th>Date</th>
-                                    <th>In Process</th>
-                                    <th>Pending</th>
-                                    <th>Resolved</th>
-                                    <th>Job Total</th>
-                                    <th>Part Replaced Service</th>
-                                    <th>MSIL</th>
-                                    <th>OUT</th>
-                                    <th>Video</th>
-                                    <th>CRF</th>
-                                    <th>FTIR</th>
-                                    <th>Issue Type CK</th>
-                                    <th>Issue Type HW</th>
-                                    <th>Issue Type SW</th>
-                                    <th>Logs & Video Suspected</th>
-                                    <th>Received</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Table rows will be inserted here by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
+            <!-- Actions -->
+            <div>
+                <label class="lbl">🚀 Actions</label>
+                <div style="display:flex;flex-direction:column;gap:9px;">
+                    <button id="generate-btn" class="btn btn-blue" disabled>
+                        <span>⚡</span> Generate Summaries
+                    </button>
+                    <button id="export-btn" class="btn btn-green" disabled>
+                        <span>📥</span> Export to Excel
+                    </button>
+                    <button id="daily-report-btn" class="btn btn-purple" disabled>
+                        <span>📋</span> Generate Daily DSR Report
+                    </button>
                 </div>
             </div>
 
-            <!-- Replacement Summary Tab -->
-            <div id="replacement-summary" class="tab-content">
-                <div class="bg-white border border-gray-300 rounded-lg p-4">
-                    <h2 class="text-xl font-bold text-gray-700 mb-4">Replacement Summary (Parts Replaced Only)</h2>
-                    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4" id="replacement-summary-filters">
-                        <!-- Filters will be added dynamically -->
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table id="replacement-summary-table">
-                            <thead>
-                                <tr>
-                                    <th>Issue/DA2 Model</th>
-                                    <!-- DA2 Model columns will be added dynamically -->
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Table rows will be inserted here by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        </div>
+    </div>
+
+    <!-- ── TAB NAV ── -->
+    <div class="card" style="padding:6px;">
+        <div class="tab-nav-scroller">
+            <div class="tab-nav" id="tab-nav">
+                <button class="tab-btn active" data-tab="top-issues">🔥 Top Issues</button>
+                <button class="tab-btn" data-tab="monthly-summary">📅 Monthly Summary</button>
+                <button class="tab-btn" data-tab="daily-summary">📆 Daily Summary</button>
+                <button class="tab-btn" data-tab="replacement-summary">🔧 Replacement Summary</button>
             </div>
         </div>
     </div>
 
-    <!-- About Modal -->
-    <div id="about-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden">
-        <div class="relative bg-white rounded-lg shadow-lg p-6 w-96">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">About DSR Analytics Dashboard</h3>
-            <div class="space-y-2 text-gray-600">
-                <p><strong>Version:</strong> 1.1.0</p>
-                <p><strong>Developed by:</strong> swarn_akshay</p>
-                <p><strong>Company:</strong> Swarn Solutions</p>
-                <p><strong>Contact:</strong> akshay.rbu@gmail.com</p>
+    <!-- ── DASHBOARD CONTENT ── -->
+    <div id="dashboard-content" style="display:none;">
+
+        <!-- TOP ISSUES -->
+        <div id="top-issues" class="tab-content active">
+            <div class="card" style="padding:24px;">
+                <div class="sec-hdr">
+                    <div>
+                        <div class="sec-title">🔥 Top 10 Issues</div>
+                        <div class="sec-sub">Most frequent issue categories in selected data</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span class="badge badge-blue">Total: <span id="total-issues-count">0</span></span>
+                        <div class="search-wrap"><input type="text" id="search-top-issues" class="search-inp" placeholder="Search issues…"></div>
+                    </div>
+                </div>
+                <div class="tbl-wrap">
+                    <table id="top-issues-table">
+                        <thead><tr><th>Issue Category</th><th>Issue Count</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
-            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+
+        <!-- MONTHLY SUMMARY -->
+        <div id="monthly-summary" class="tab-content">
+            <div class="card" style="padding:24px;">
+                <div class="sec-hdr">
+                    <div>
+                        <div class="sec-title">📅 Monthly Summary</div>
+                        <div class="sec-sub">Job status and analytics aggregated by month</div>
+                    </div>
+                    <div class="search-wrap"><input type="text" id="search-monthly" class="search-inp" placeholder="Search months…"></div>
+                </div>
+                <div class="tbl-wrap">
+                    <table id="monthly-summary-table">
+                        <thead><tr>
+                            <th>Month</th><th>In Process</th><th>Pending</th><th>Resolved</th><th>Job Total</th>
+                            <th>Part Replaced</th><th>MSIL</th><th>OUT</th><th>Video</th><th>CRF</th><th>FTIR</th>
+                            <th>Issue CK</th><th>Issue HW</th><th>Issue SW</th><th>Logs Suspected</th><th>Received</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- DAILY SUMMARY -->
+        <div id="daily-summary" class="tab-content">
+            <div class="card" style="padding:24px;">
+                <div class="sec-hdr">
+                    <div>
+                        <div class="sec-title">📆 Daily Summary</div>
+                        <div class="sec-sub">Day-by-day breakdown of all DSR activities</div>
+                    </div>
+                    <div class="search-wrap"><input type="text" id="search-daily" class="search-inp" placeholder="Search dates…"></div>
+                </div>
+                <div class="tbl-wrap">
+                    <table id="daily-summary-table">
+                        <thead><tr>
+                            <th>Month</th><th>Date</th><th>In Process</th><th>Pending</th><th>Resolved</th><th>Job Total</th>
+                            <th>Part Replaced</th><th>MSIL</th><th>OUT</th><th>Video</th><th>CRF</th><th>FTIR</th>
+                            <th>Issue CK</th><th>Issue HW</th><th>Issue SW</th><th>Logs Suspected</th><th>Received</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- REPLACEMENT SUMMARY -->
+        <div id="replacement-summary" class="tab-content">
+            <div class="card" style="padding:24px;">
+                <div class="sec-hdr">
+                    <div>
+                        <div class="sec-title">🔧 Replacement Summary</div>
+                        <div class="sec-sub">Parts replaced per Issue Category × DA2 Model (scroll horizontally)</div>
+                    </div>
+                    <div class="search-wrap"><input type="text" id="search-replacement" class="search-inp" placeholder="Search issues…"></div>
+                </div>
+                <div class="tbl-wrap">
+                    <table id="replacement-summary-table">
+                        <thead><tr><th class="sticky-col">Issue / DA2 Model</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- YEAR SUMMARIES (injected dynamically) -->
+        <div id="year-summaries-container"></div>
+
+    </div><!-- /dashboard-content -->
+</div><!-- /page-wrap -->
+
+<!-- ── ABOUT MODAL ── -->
+<div id="about-modal" class="modal-ov hidden">
+    <div class="modal-box">
+        <button class="modal-close" id="close-modal-btn">✕</button>
+        <div class="modal-title">DSR Analytics Dashboard</div>
+
+        <div class="modal-row">
+            <div class="modal-ico" style="background:rgba(79,149,255,.14);">🔖</div>
+            <div>
+                <div style="font-size:11px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Version</div>
+                <div style="font-size:14px;color:var(--txt-primary);font-weight:700;margin-top:2px;">2.0.0 (Enhanced UI)</div>
+            </div>
+        </div>
+        <div class="modal-row">
+            <div class="modal-ico" style="background:rgba(0,229,153,.1);">👨‍💻</div>
+            <div>
+                <div style="font-size:11px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Developed by</div>
+                <div style="font-size:14px;color:var(--txt-primary);font-weight:700;margin-top:2px;">swarn_akshay</div>
+            </div>
+        </div>
+        <div class="modal-row">
+            <div class="modal-ico" style="background:rgba(181,107,255,.12);">🏢</div>
+            <div>
+                <div style="font-size:11px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Company</div>
+                <div style="font-size:14px;color:var(--txt-primary);font-weight:700;margin-top:2px;">Swarn Solutions</div>
+            </div>
+        </div>
+        <div class="modal-row">
+            <div class="modal-ico" style="background:rgba(255,107,107,.1);">📧</div>
+            <div>
+                <div style="font-size:11px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Contact</div>
+                <div style="font-size:14px;color:var(--txt-primary);font-weight:700;margin-top:2px;">akshay.rbu@gmail.com</div>
+            </div>
         </div>
     </div>
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // DOM Elements
-            const fileInput = document.getElementById('file-upload');
-            const fileName = document.getElementById('file-name');
-            const monthFilter = document.getElementById('month-filter');
-            const generateBtn = document.getElementById('generate-btn');
-            const exportBtn = document.getElementById('export-btn');
-            const dailyReportBtn = document.getElementById('daily-report-btn');
-            const aboutBtn = document.getElementById('about-btn');
-            const aboutModal = document.getElementById('about-modal');
-            const closeModalBtn = document.getElementById('close-modal-btn');
-            const dashboardContent = document.getElementById('dashboard-content');
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const loadingText = document.getElementById('loading-text');
-            const tabButtons = document.querySelectorAll('.tab-button');
-            const statusMessage = document.getElementById('status-message');
-            
-            // Data storage
-            let dsrData = null;
-            let summaryTables = {};
-            let currentTab = 'top-issues';
-            
-            // Log required categories (from Python code)
-            const logRequiredCategories = [
-                "aa auto disconnect - wireless", "aa projection issue", "cp to fm mode issue",
-                "cp projection not working", "navigation not working properly during aa and cp",
-                "da2 hang", "sw update error", "navigation not working properly",
-                "cp and aa projection issue", "aa - da2 hang", "car play - auto disconnect",
-                "aa not connecting", "aa and cp not connecting", "aa - blank display/blinking",
-                "cp issue", "bt calling hang/issue", "bt auto disconnect", "aa - media not audible",
-                "system and cluster time is not sync properly", "cp - call not connecting only in morning",
-                "memory loss and wifi auto off", "audio/video sync issue & hang", "dual audio audible (cp and fm)",
-                "aa - volume issue", "aa- volumn drop music/voice chopping",
-                "sometimes projection issue and memory loss", "memory loss",
-                "cp projection not working and sw update error", "navigation not working properly",
-                "paired devices auto unpaired after some time/hours/days", "aa auto disconnect - wired",
-                "aa not connecting", "aa auto disconnect - wired/wireless", "bt issue", "va not working",
-                "aa issue", "cp disconnects and da2 hang", "aa auto disconnect- wireless", "cp not connecting",
-                "system hang", "aa auto discoonect- wireless", "bt calling - low audio/voice chopping",
-                "aa and cp not connecting", "bt calling issue"
-            ].map(cat => cat.toLowerCase());
+<script>
+document.addEventListener('DOMContentLoaded', () => {
 
-            // Event Listeners
-            fileInput.addEventListener('change', handleFileUpload);
-            monthFilter.addEventListener('change', handleMonthFilterChange);
-            generateBtn.addEventListener('click', generateSummaries);
-            exportBtn.addEventListener('click', exportToExcel);
-            dailyReportBtn.addEventListener('click', generateDailyReport);
-            aboutBtn.addEventListener('click', () => aboutModal.classList.remove('hidden'));
-            closeModalBtn.addEventListener('click', () => aboutModal.classList.add('hidden'));
-            
-            // Tab switching
-            tabButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const tabId = button.getAttribute('data-tab');
-                    switchTab(tabId);
-                });
-            });
-            
-            // Close modal when clicking outside
-            window.addEventListener('click', (event) => {
-                if (event.target === aboutModal) {
-                    aboutModal.classList.add('hidden');
-                }
-            });
+    /* ─── DOM REFS ─── */
+    const fileInput       = document.getElementById('file-upload');
+    const uploadZone      = document.getElementById('upload-zone');
+    const uploadIdle      = document.getElementById('upload-idle');
+    const uploadOk        = document.getElementById('upload-ok');
+    const fileNameShow    = document.getElementById('file-name-show');
+    const monthFilter     = document.getElementById('month-filter');
+    const generateBtn     = document.getElementById('generate-btn');
+    const exportBtn       = document.getElementById('export-btn');
+    const dailyReportBtn  = document.getElementById('daily-report-btn');
+    const aboutBtn        = document.getElementById('about-btn');
+    const aboutModal      = document.getElementById('about-modal');
+    const closeModalBtn   = document.getElementById('close-modal-btn');
+    const dashboardContent= document.getElementById('dashboard-content');
+    const loadingPill     = document.getElementById('loading-pill');
+    const loadingText     = document.getElementById('loading-text');
+    const tabNav          = document.getElementById('tab-nav');
+    const yearSummariesContainer = document.getElementById('year-summaries-container');
+    const totalIssuesCount= document.getElementById('total-issues-count');
+    const themeBtn        = document.getElementById('theme-btn');
+    const toastRoot       = document.getElementById('toast-root');
 
-            // Functions
-            function handleFileUpload(event) {
-                const file = event.target.files[0];
-                if (!file) {
-                    fileName.textContent = 'No file selected';
-                    return;
-                }
-                
-                fileName.textContent = file.name;
-                dashboardContent.style.display = 'none';
-                exportBtn.disabled = true;
-                generateBtn.disabled = true;
-                dailyReportBtn.disabled = true;
-                monthFilter.disabled = true;
-                
-                // Reset month filter
-                monthFilter.innerHTML = '<option value="all">All Months</option>';
-                
-                showLoading('Reading file...');
-                
-                readExcelFile(file)
-                    .then(data => {
-                        dsrData = data;
-                        
-                        // Extract unique months for filter
-                        const months = extractMonthsFromData(data);
-                        
-                        if (months.length > 0) {
-                            // Add months to filter dropdown
-                            months.forEach(month => {
-                                const option = document.createElement('option');
-                                option.value = month.value;
-                                option.textContent = month.display;
-                                monthFilter.appendChild(option);
-                            });
-                            
-                            monthFilter.disabled = false;
-                            generateBtn.disabled = false;
-                            dailyReportBtn.disabled = false;
-                            
-                            showStatus('File loaded successfully. Select a month filter and generate summaries.', 'success');
-                        } else {
-                            showStatus('No valid dates found in the "Date Of Register" column.', 'error');
-                        }
-                        
-                        hideLoading();
-                    })
-                    .catch(error => {
-                        console.error('Error reading file:', error);
-                        showStatus('Error reading file. Please make sure it is a valid Excel file.', 'error');
-                        hideLoading();
-                    });
-            }
-            
-            function handleMonthFilterChange() {
-                if (dsrData && dsrData.length > 0) {
-                    generateBtn.disabled = false;
-                }
-            }
-            
-function extractMonthsFromData(data) {
-    const monthsSet = new Set();
-    
-    data.forEach(row => {
-        if (row['Date Of Register']) {
-            const date = parseDate(row['Date Of Register']);
-            if (date && !isNaN(date)) {
-                const monthValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                const monthDisplay = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                monthsSet.add(JSON.stringify({ value: monthValue, display: monthDisplay }));
-            }
-        }
-    });
-    
-    // Convert set to array and sort by date (ascending order - oldest first)
-    const monthsArray = Array.from(monthsSet).map(str => JSON.parse(str));
-    monthsArray.sort((a, b) => {
-        const dateA = new Date(a.value + '-01');
-        const dateB = new Date(b.value + '-01');
-        return dateA - dateB; // Ascending order (oldest first)
-    });
-    
-    return monthsArray;
-}
-            function parseDate(dateValue) {
-                // Try different date formats
-                if (dateValue instanceof Date) {
-                    return dateValue;
-                }
-                
-                if (typeof dateValue === 'string') {
-                    // Try ISO format
-                    let date = new Date(dateValue);
-                    if (!isNaN(date)) return date;
-                    
-                    // Try DD/MM/YYYY format
-                    const parts = dateValue.split('/');
-                    if (parts.length === 3) {
-                        date = new Date(parts[2], parts[1] - 1, parts[0]);
-                        if (!isNaN(date)) return date;
-                    }
-                    
-                    // Try MM/DD/YYYY format
-                    date = new Date(dateValue);
-                    if (!isNaN(date)) return date;
-                }
-                
-                // Try Excel serial date format
-                if (typeof dateValue === 'number') {
-                    // Excel dates are based on January 1, 1900
-                    const excelEpoch = new Date(1900, 0, 1);
-                    const date = new Date(excelEpoch.getTime() + (dateValue - 1) * 24 * 60 * 60 * 1000);
-                    if (!isNaN(date)) return date;
-                }
-                
-                return null;
-            }
-            
-            function readExcelFile(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        try {
-                            const data = new Uint8Array(e.target.result);
-                            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                            const firstSheetName = workbook.SheetNames[0];
-                            const worksheet = workbook.Sheets[firstSheetName];
-                            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-                            resolve(jsonData);
-                        } catch (error) {
-                            reject(error);
-                        }
-                    };
-                    reader.onerror = function(error) {
-                        reject(error);
-                    };
-                    reader.readAsArrayBuffer(file);
-                });
-            }
-            
-            function showLoading(message) {
-                loadingText.textContent = message;
-                loadingIndicator.classList.remove('hidden');
-            }
-            
-            function hideLoading() {
-                loadingIndicator.classList.add('hidden');
-            }
-            
-            function showStatus(message, type) {
-                statusMessage.textContent = message;
-                statusMessage.className = 'status-message';
-                statusMessage.classList.add(type === 'success' ? 'status-success' : 'status-error');
-                statusMessage.classList.remove('hidden');
-                
-                // Auto-hide after 5 seconds
-                setTimeout(() => {
-                    statusMessage.classList.add('hidden');
-                }, 5000);
-            }
-            
-            function generateSummaries() {
-                if (!dsrData || dsrData.length === 0) {
-                    showStatus('Please upload a DSR file first.', 'error');
-                    return;
-                }
-                
-                showLoading('Generating summaries...');
-                
-                // Apply month filter if needed
-                let filteredData = [...dsrData];
-                const selectedMonth = monthFilter.value;
-                
-                if (selectedMonth !== 'all') {
-                    filteredData = filteredData.filter(row => {
-                        if (!row['Date Of Register']) return false;
-                        const date = parseDate(row['Date Of Register']);
-                        if (!date || isNaN(date)) return false;
-                        
-                        const rowMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                        return rowMonth === selectedMonth;
-                    });
-                    
-                    if (filteredData.length === 0) {
-                        hideLoading();
-                        showStatus('No data found for the selected month.', 'error');
-                        return;
-                    }
-                }
-                
-                // Simulate processing delay
-                setTimeout(() => {
-                    try {
-                        // Generate all summaries
-                        generateTopIssuesSummary(filteredData);
-                        generateMonthlySummary(filteredData);
-                        generateDailySummary(filteredData);
-                        generateReplacementSummary(filteredData);
-                        
-                        // Show the dashboard
-                        dashboardContent.style.display = 'block';
-                        exportBtn.disabled = false;
-                        
-                        // Switch to first tab
-                        switchTab('top-issues');
-                        
-                        hideLoading();
-                        showStatus('Summaries generated successfully!', 'success');
-                    } catch (error) {
-                        hideLoading();
-                        console.error('Error generating summaries:', error);
-                        showStatus('Error generating summaries. Please check the file format.', 'error');
-                    }
-                }, 1000);
-            }
-            
-            function generateTopIssuesSummary(data) {
-                if (!data || data.length === 0) return;
-                
-                // Count issues by category
-                const issueCounts = {};
-                data.forEach(row => {
-                    if (row['Issue Category']) {
-                        const category = String(row['Issue Category']).trim();
-                        if (category) {
-                            const lowerCategory = category.toLowerCase();
-                            issueCounts[lowerCategory] = (issueCounts[lowerCategory] || 0) + 1;
-                        }
-                    }
-                });
-                
-                // Convert to array and sort by count (descending)
-                const issuesArray = Object.entries(issueCounts)
-                    .map(([category, count]) => ({ category, count }))
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 10); // Top 10
-                
-                // Format category names (capitalize first letter of each word)
-                issuesArray.forEach(issue => {
-                    issue.formattedCategory = issue.category
-                        .split(' ')
-                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                        .join(' ');
-                });
-                
-                // Store for export
-                summaryTables.topIssues = issuesArray;
-                
-                // Update UI
-                const tableBody = document.querySelector('#top-issues-table tbody');
-                tableBody.innerHTML = '';
-                
-                if (issuesArray.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4">No issues found</td></tr>';
-                    return;
-                }
-                
-                issuesArray.forEach(issue => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${issue.formattedCategory}</td>
-                        <td>${issue.count}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-                
-                // Add filters
-                const filterContainer = document.getElementById('top-issues-filters');
-                filterContainer.innerHTML = `
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Filter Issue Category</label>
-                        <input type="text" class="filter-input" data-column="0" placeholder="Filter Issue Category">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Filter Issue Count</label>
-                        <input type="text" class="filter-input" data-column="1" placeholder="Filter Issue Count">
-                    </div>
-                `;
-                
-                // Add filter functionality
-                addTableFilters('top-issues-table');
-            }
-            
-            function generateMonthlySummary(data) {
-    if (!data || data.length === 0) return;
-    
-    // Group data by month
-    const monthlyData = {};
-    data.forEach(row => {
-        if (!row['Date Of Register']) return;
-        
-        const date = parseDate(row['Date Of Register']);
-        if (!date || isNaN(date)) return;
-        
-        const monthValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const monthDisplay = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        if (!monthlyData[monthValue]) {
-            monthlyData[monthValue] = {
-                month: monthDisplay,
-                monthValue: monthValue, // Store for sorting
-                inProcess: 0,
-                pending: 0,
-                resolved: 0,
-                jobTotal: 0,
-                partReplaced: 0,
-                msil: 0,
-                out: 0,
-                video: 0,
-                crf: 0,
-                ftir: 0,
-                issueCK: 0,
-                issueHW: 0,
-                issueSW: 0,
-                logsVideoSuspected: 0,
-                received: 0
-            };
-        }
-        
-        const month = monthlyData[monthValue];
-        month.jobTotal++;
-        
-        // Status counts
-        if (row['Status Of Job'] === 'In Process') month.inProcess++;
-        if (row['Status Of Job'] === 'Pending') month.pending++;
-        if (row['Status Of Job'] === 'Resolved') month.resolved++;
-        
-        // Part replacement counts
-        if (row['Part Replaced'] === 'Yes') month.partReplaced++;
-        if (String(row['Part Replaced']).toLowerCase().includes('msil')) month.msil++;
-        
-        // Warranty status
-        if (String(row['Warranty Status']).trim().toUpperCase() === 'OUT') month.out++;
-        
-        // Documentation counts
-        if (row['Videos'] === 'Yes') month.video++;
-        if (row['CRF'] === 'Yes') month.crf++;
-        if (row['FTIR'] === 'Yes') month.ftir++;
-        
-        // Issue type counts
-        const issueType = String(row['Type of Issue Suspected']).trim().toUpperCase();
-        if (issueType === 'CK') month.issueCK++;
-        if (issueType === 'HW') month.issueHW++;
-        if (issueType === 'SW') month.issueSW++;
-        
-        // Logs and video counts for specific categories
-        const issueCategory = String(row['Issue Category']).trim().toLowerCase();
-        if (logRequiredCategories.includes(issueCategory)) {
-            month.logsVideoSuspected++;
-        }
-        
-        if (row['Logs Taken'] === 'Yes') month.received++;
-    });
-    
-    // Convert to array and sort by date (ascending order - Jan to Current)
-    const monthlyArray = Object.values(monthlyData).sort((a, b) => {
-        return new Date(a.monthValue + '-01') - new Date(b.monthValue + '-01'); // Ascending order (oldest first)
-    });
-    
-    // Add total row
-    const totals = {
-        month: 'Total',
-        monthValue: '',
-        inProcess: monthlyArray.reduce((sum, month) => sum + month.inProcess, 0),
-        pending: monthlyArray.reduce((sum, month) => sum + month.pending, 0),
-        resolved: monthlyArray.reduce((sum, month) => sum + month.resolved, 0),
-        jobTotal: monthlyArray.reduce((sum, month) => sum + month.jobTotal, 0),
-        partReplaced: monthlyArray.reduce((sum, month) => sum + month.partReplaced, 0),
-        msil: monthlyArray.reduce((sum, month) => sum + month.msil, 0),
-        out: monthlyArray.reduce((sum, month) => sum + month.out, 0),
-        video: monthlyArray.reduce((sum, month) => sum + month.video, 0),
-        crf: monthlyArray.reduce((sum, month) => sum + month.crf, 0),
-        ftir: monthlyArray.reduce((sum, month) => sum + month.ftir, 0),
-        issueCK: monthlyArray.reduce((sum, month) => sum + month.issueCK, 0),
-        issueHW: monthlyArray.reduce((sum, month) => sum + month.issueHW, 0),
-        issueSW: monthlyArray.reduce((sum, month) => sum + month.issueSW, 0),
-        logsVideoSuspected: monthlyArray.reduce((sum, month) => sum + month.logsVideoSuspected, 0),
-        received: monthlyArray.reduce((sum, month) => sum + month.received, 0)
-    };
-    
-    monthlyArray.push(totals);
-    
-    // Store for export
-    summaryTables.monthlySummary = monthlyArray;
-    
-    // Update UI
-    const tableBody = document.querySelector('#monthly-summary-table tbody');
-    tableBody.innerHTML = '';
-    
-    monthlyArray.forEach(month => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${month.month}</td>
-            <td>${month.inProcess}</td>
-            <td>${month.pending}</td>
-            <td>${month.resolved}</td>
-            <td>${month.jobTotal}</td>
-            <td>${month.partReplaced}</td>
-            <td>${month.msil}</td>
-            <td>${month.out}</td>
-            <td>${month.video}</td>
-            <td>${month.crf}</td>
-            <td>${month.ftir}</td>
-            <td>${month.issueCK}</td>
-            <td>${month.issueHW}</td>
-            <td>${month.issueSW}</td>
-            <td>${month.logsVideoSuspected}</td>
-            <td>${month.received}</td>
-        `;
-        tableBody.appendChild(row);
-    });
-    
-    // Add filter functionality
-    addTableFilters('monthly-summary-table');
-}
+    let dsrData = null, summaryTables = {}, yearSummaryData = {}, yearTabs = [];
 
-           function generateDailySummary(data) {
-    if (!data || data.length === 0) return;
-    
-    // Group by date
-    const dailyData = {};
-    data.forEach(row => {
-        if (!row['Date Of Register']) return;
-        
-        const date = parseDate(row['Date Of Register']);
-        if (!date || isNaN(date)) return;
-        
-        // Format date as DD-Mon-YY (e.g., 01-Jan-24)
-        const dateStr = formatDateToDDMonYY(date);
-        const monthDisplay = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        if (!dailyData[dateStr]) {
-            dailyData[dateStr] = {
-                month: monthDisplay,
-                date: dateStr,
-                dateObj: date, // Store date object for proper sorting
-                inProcess: 0,
-                pending: 0,
-                resolved: 0,
-                jobTotal: 0,
-                partReplaced: 0,
-                msil: 0,
-                out: 0,
-                video: 0,
-                crf: 0,
-                ftir: 0,
-                issueCK: 0,
-                issueHW: 0,
-                issueSW: 0,
-                logsVideoSuspected: 0,
-                received: 0
-            };
-        }
-        
-        const day = dailyData[dateStr];
-        day.jobTotal++;
-        
-        // Status counts
-        if (row['Status Of Job'] === 'In Process') day.inProcess++;
-        if (row['Status Of Job'] === 'Pending') day.pending++;
-        if (row['Status Of Job'] === 'Resolved') day.resolved++;
-        
-        // Part replacement counts
-        if (row['Part Replaced'] === 'Yes') day.partReplaced++;
-        if (String(row['Part Replaced']).toLowerCase().includes('msil')) day.msil++;
-        
-        // Warranty status
-        if (String(row['Warranty Status']).trim().toUpperCase() === 'OUT') day.out++;
-        
-        // Documentation counts
-        if (row['Videos'] === 'Yes') day.video++;
-        if (row['CRF'] === 'Yes') day.crf++;
-        if (row['FTIR'] === 'Yes') day.ftir++;
-        
-        // Issue type counts
-        const issueType = String(row['Type of Issue Suspected']).trim().toUpperCase();
-        if (issueType === 'CK') day.issueCK++;
-        if (issueType === 'HW') day.issueHW++;
-        if (issueType === 'SW') day.issueSW++;
-        
-        // Logs and video counts for specific categories
-        const issueCategory = String(row['Issue Category']).trim().toLowerCase();
-        if (logRequiredCategories.includes(issueCategory)) {
-            day.logsVideoSuspected++;
-        }
-        
-        if (row['Logs Taken'] === 'Yes') day.received++;
-    });
-    
-    // Convert to array and sort by date (ascending order - 1 to 31)
-    const dailyArray = Object.values(dailyData).sort((a, b) => {
-        return a.dateObj - b.dateObj; // Ascending order (oldest first)
-    });
-    
-    // Add total row
-    const totals = {
-        month: 'Total',
-        date: '',
-        dateObj: new Date(), // Dummy date for sorting
-        inProcess: dailyArray.reduce((sum, day) => sum + day.inProcess, 0),
-        pending: dailyArray.reduce((sum, day) => sum + day.pending, 0),
-        resolved: dailyArray.reduce((sum, day) => sum + day.resolved, 0),
-        jobTotal: dailyArray.reduce((sum, day) => sum + day.jobTotal, 0),
-        partReplaced: dailyArray.reduce((sum, day) => sum + day.partReplaced, 0),
-        msil: dailyArray.reduce((sum, day) => sum + day.msil, 0),
-        out: dailyArray.reduce((sum, day) => sum + day.out, 0),
-        video: dailyArray.reduce((sum, day) => sum + day.video, 0),
-        crf: dailyArray.reduce((sum, day) => sum + day.crf, 0),
-        ftir: dailyArray.reduce((sum, day) => sum + day.ftir, 0),
-        issueCK: dailyArray.reduce((sum, day) => sum + day.issueCK, 0),
-        issueHW: dailyArray.reduce((sum, day) => sum + day.issueHW, 0),
-        issueSW: dailyArray.reduce((sum, day) => sum + day.issueSW, 0),
-        logsVideoSuspected: dailyArray.reduce((sum, day) => sum + day.logsVideoSuspected, 0),
-        received: dailyArray.reduce((sum, day) => sum + day.received, 0)
-    };
-    
-    dailyArray.push(totals);
-    
-    // Store for export
-    summaryTables.dailySummary = dailyArray;
-    
-    // Update UI
-    const tableBody = document.querySelector('#daily-summary-table tbody');
-    tableBody.innerHTML = '';
-    
-    dailyArray.forEach(day => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${day.month}</td>
-            <td>${day.date}</td>
-            <td>${day.inProcess}</td>
-            <td>${day.pending}</td>
-            <td>${day.resolved}</td>
-            <td>${day.jobTotal}</td>
-            <td>${day.partReplaced}</td>
-            <td>${day.msil}</td>
-            <td>${day.out}</td>
-            <td>${day.video}</td>
-            <td>${day.crf}</td>
-            <td>${day.ftir}</td>
-            <td>${day.issueCK}</td>
-            <td>${day.issueHW}</td>
-            <td>${day.issueSW}</td>
-            <td>${day.logsVideoSuspected}</td>
-            <td>${day.received}</td>
-        `;
-        tableBody.appendChild(row);
-    });
-    
-    // Add filter functionality
-    addTableFilters('daily-summary-table');
-}
+    /* ─── THEME TOGGLE ─── */
+    const savedTheme = localStorage.getItem('dsr-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
-// Add this helper function to format dates as DD-Mon-YY
-function formatDateToDDMonYY(date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = date.toLocaleDateString('en-US', { month: 'short' });
-    const year = String(date.getFullYear()).slice(-2);
-    return `${day}-${month}-${year}`;
-}
+    themeBtn.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme');
+        const nxt = cur === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', nxt);
+        themeBtn.textContent = nxt === 'dark' ? '☀️' : '🌙';
+        localStorage.setItem('dsr-theme', nxt);
+    });
 
-            function generateReplacementSummary(data) {
-                // Filter only rows where part was replaced
-                const replacedData = data.filter(row => 
-                    String(row['Part Replaced']).trim().toUpperCase() === 'YES'
-                );
-                
-                if (replacedData.length === 0) {
-                    const tableBody = document.querySelector('#replacement-summary-table tbody');
-                    tableBody.innerHTML = '<tr><td colspan="2" class="text-center py-4">No replacement data found</td></tr>';
-                    return;
-                }
-                
-                // Count issues by category and DA2 model
-                const replacementCounts = {};
-                const da2Models = new Set();
-                
-                replacedData.forEach(row => {
-                    const issueCategory = String(row['Issue Category']).trim();
-                    const da2Model = String(row['DA2- Model']).trim();
-                    
-                    if (!da2Model || !issueCategory) return;
-                    
-                    da2Models.add(da2Model);
-                    
-                    if (!replacementCounts[issueCategory]) {
-                        replacementCounts[issueCategory] = {};
-                    }
-                    
-                    replacementCounts[issueCategory][da2Model] = 
-                        (replacementCounts[issueCategory][da2Model] || 0) + 1;
-                });
-                
-                // Convert to array format
-                const replacementArray = [];
-                const sortedModels = Array.from(da2Models).sort();
-                
-                // Add header row
-                const headerRow = { issueCategory: 'Issue/DA2 Model' };
-                sortedModels.forEach(model => {
-                    headerRow[model] = model;
-                });
-                replacementArray.push(headerRow);
-                
-                // Add data rows
-                Object.entries(replacementCounts).forEach(([issueCategory, modelCounts]) => {
-                    const row = { issueCategory };
-                    sortedModels.forEach(model => {
-                        row[model] = modelCounts[model] || 0;
-                    });
-                    replacementArray.push(row);
-                });
-                
-                // Add total row
-                const totalRow = { issueCategory: 'Total' };
-                sortedModels.forEach(model => {
-                    totalRow[model] = replacementArray.slice(1).reduce((sum, row) => sum + (row[model] || 0), 0);
-                });
-                replacementArray.push(totalRow);
-                
-                // Store for export
-                summaryTables.replacementSummary = replacementArray;
-                
-                // Update UI
-                const tableHead = document.querySelector('#replacement-summary-table thead tr');
-                const tableBody = document.querySelector('#replacement-summary-table tbody');
-                
-                // Clear existing content
-                tableHead.innerHTML = '';
-                tableBody.innerHTML = '';
-                
-                // Add header cells
-                const headerCell = document.createElement('th');
-                headerCell.textContent = 'Issue/DA2 Model';
-                tableHead.appendChild(headerCell);
-                
-                sortedModels.forEach(model => {
-                    const th = document.createElement('th');
-                    th.textContent = model;
-                    tableHead.appendChild(th);
-                });
-                
-                // Add data rows
-                replacementArray.forEach((row, index) => {
-                    const tr = document.createElement('tr');
-                    
-                    // First column (issue category or header)
-                    const firstTd = document.createElement('td');
-                    firstTd.textContent = row.issueCategory;
-                    if (index === 0 || index === replacementArray.length - 1) firstTd.style.fontWeight = 'bold';
-                    tr.appendChild(firstTd);
-                    
-                    // Model columns
-                    sortedModels.forEach(model => {
-                        const td = document.createElement('td');
-                        td.textContent = row[model] || '';
-                        if (index === 0 || index === replacementArray.length - 1) td.style.fontWeight = 'bold';
-                        tr.appendChild(td);
-                    });
-                    
-                    tableBody.appendChild(tr);
-                });
-                
-                // Add filter functionality
-                addTableFilters('replacement-summary-table');
-            }
-            
-            function addTableFilters(tableId) {
-                const table = document.getElementById(tableId);
-                const filters = document.querySelectorAll(`#${tableId.replace('-table', '')}-filters input`);
-                
-                filters.forEach(input => {
-                    input.addEventListener('keyup', function() {
-                        const columnIndex = parseInt(this.getAttribute('data-column'));
-                        const filterValue = this.value.toLowerCase();
-                        
-                        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-                        
-                        for (let i = 0; i < rows.length; i++) {
-                            const cell = rows[i].getElementsByTagName('td')[columnIndex];
-                            if (cell) {
-                                const cellValue = cell.textContent || cell.innerText;
-                                if (cellValue.toLowerCase().indexOf(filterValue) > -1) {
-                                    rows[i].style.display = '';
-                                } else {
-                                    rows[i].style.display = 'none';
-                                }
-                            }
-                        }
-                    });
-                });
-            }
-            
-            function switchTab(tabId) {
-                // Update tab buttons
-                tabButtons.forEach(button => {
-                    if (button.getAttribute('data-tab') === tabId) {
-                        button.classList.add('border-blue-500', 'text-blue-600');
-                        button.classList.remove('border-transparent', 'text-gray-500');
-                    } else {
-                        button.classList.remove('border-blue-500', 'text-blue-600');
-                        button.classList.add('border-transparent', 'text-gray-500');
-                    }
-                });
-                
-                // Update tab contents
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    if (content.id === tabId) {
-                        content.classList.add('active');
-                    } else {
-                        content.classList.remove('active');
-                    }
-                });
-                
-                currentTab = tabId;
-            }
-            
-            function exportToExcel() {
-                if (!summaryTables.topIssues) {
-                    showStatus('Please generate summaries first.', 'error');
-                    return;
-                }
-                
-                showLoading('Exporting to Excel...');
-                
-                // Create a new workbook
-                const wb = XLSX.utils.book_new();
-                
-                // Add each summary as a separate sheet
-                if (summaryTables.topIssues) {
-                    const ws1 = XLSX.utils.json_to_sheet(summaryTables.topIssues.map(item => ({
-                        'Issue Category': item.formattedCategory,
-                        'Issue Count': item.count
-                    })));
-                    XLSX.utils.book_append_sheet(wb, ws1, 'Top Issues');
-                }
-                
-                if (summaryTables.monthlySummary) {
-                    const ws2 = XLSX.utils.json_to_sheet(summaryTables.monthlySummary);
-                    XLSX.utils.book_append_sheet(wb, ws2, 'Monthly Summary');
-                }
-                
-                if (summaryTables.dailySummary) {
-                    const ws3 = XLSX.utils.json_to_sheet(summaryTables.dailySummary);
-                    XLSX.utils.book_append_sheet(wb, ws3, 'Daily Summary');
-                }
-                
-                if (summaryTables.replacementSummary) {
-                    const ws4 = XLSX.utils.json_to_sheet(summaryTables.replacementSummary);
-                    XLSX.utils.book_append_sheet(wb, ws4, 'Replacement Summary');
-                }
-                
-                // Generate file and trigger download
-                XLSX.writeFile(wb, 'DSR_Analytics_Summary.xlsx');
-                
-                setTimeout(() => {
-                    hideLoading();
-                    showStatus('Export completed successfully!', 'success');
-                }, 1000);
-            }
-            
-function generateDailyReport() {
-    if (!dsrData || dsrData.length === 0) {
-        showStatus('Please upload a DSR file first.', 'error');
-        return;
+    /* ─── TOAST ─── */
+    function toast(msg, type = 'info', ms = 4500) {
+        const icons = { success:'✅', error:'❌', info:'ℹ️' };
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><span class="toast-text">${msg}</span>`;
+        toastRoot.appendChild(el);
+        if (ms > 0) setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 330); }, ms);
+        return el;
     }
 
-    showLoading('Generating Daily DSR Report...');
+    /* ─── LOADING ─── */
+    function showLoading(msg) { loadingText.textContent = msg; loadingPill.classList.remove('hidden'); }
+    function hideLoading()    { loadingPill.classList.add('hidden'); }
 
-    // Apply month filter if needed
-    let filteredData = [...dsrData];
-    const selectedMonth = monthFilter.value;
-    
-    if (selectedMonth !== 'all') {
-        filteredData = filteredData.filter(row => {
-            if (!row['Date Of Register']) return false;
-            const date = parseDate(row['Date Of Register']);
-            if (!date || isNaN(date)) return false;
-            
-            const rowMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            return rowMonth === selectedMonth;
+    /* ─── DRAG & DROP ─── */
+    ['dragenter','dragover'].forEach(ev => uploadZone.addEventListener(ev, e => { e.preventDefault(); uploadZone.classList.add('drag-over'); }));
+    ['dragleave','drop'].forEach(ev => uploadZone.addEventListener(ev, () => uploadZone.classList.remove('drag-over')));
+    uploadZone.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) processFile(f); });
+    fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+    function processFile(file) {
+        uploadIdle.style.display = 'none';
+        uploadOk.style.display   = 'block';
+        fileNameShow.textContent = '📄 ' + file.name;
+        uploadZone.classList.remove('has-file');
+        resetDashboard();
+        showLoading('Reading file…');
+        readExcelFile(file)
+            .then(data => {
+                dsrData = data;
+                populateMonthFilter(data);
+                hideLoading();
+                uploadZone.classList.add('has-file');
+            })
+            .catch(err => {
+                console.error(err);
+                toast('Error reading file. Please verify the format.', 'error');
+                hideLoading();
+            });
+    }
+
+    /* ─── UPDATED MODEL ORDER ─── */
+    const customModelOrder = [
+        '55T00','55T01','55T02','55T03',
+        '55TA0','55TA1','55TA2','55TA3','55TA4',
+        '75T01','75T02','75T03','75TA1',
+        '55UA1','55UA2',
+        '66T00','66T01','66T02','66T03','66T04',
+        '66TA0','66TA1','66TA2','66TA3',
+        '50U00','50U01','50U02','50U04',
+        '72S00','72S01','72S02',
+        '80T00','80TA0','80TA1',
+        '55Q00','55QP0',
+        '76T00','76T01','76T02',
+        '76TA0','76TA1','76TA2',
+        '76TP0','76TP1','76TP2',
+        '55T30',
+        '55Q01','55Q02','55QP1',
+        '71U00','71U01',
+        '75TA2',
+        '71U02',
+        '75T30'
+    ];
+
+    const logRequiredCategories = [
+        "aa auto disconnect - wireless","aa projection issue","cp to fm mode issue","cp projection not working",
+        "navigation not working properly during aa and cp","da2 hang","sw update error","navigation not working properly",
+        "cp and aa projection issue","aa - da2 hang","car play - auto disconnect","aa not connecting",
+        "aa and cp not connecting","aa - blank display/blinking","cp issue","bt calling hang/issue","bt auto disconnect",
+        "aa - media not audible","system and cluster time is not sync properly","cp - call not connecting only in morning",
+        "memory loss and wifi auto off","audio/video sync issue & hang","dual audio audible (cp and fm)","aa - volume issue",
+        "aa- volumn drop music/voice chopping","sometimes projection issue and memory loss","memory loss",
+        "cp projection not working and sw update error","paired devices auto unpaired after some time/hours/days",
+        "aa auto disconnect - wired","aa auto disconnect - wired/wireless","bt issue","va not working","aa issue",
+        "cp disconnects and da2 hang","aa auto disconnect- wireless","cp not connecting","system hang",
+        "aa auto discoonect- wireless","bt calling - low audio/voice chopping","bt calling issue"
+    ].map(c => c.toLowerCase());
+
+    const monthlyDisplayHeaders = ['Month','In Process','Pending','Resolved','Job Total','Part Replaced Service','MSIL','OUT','Video','CRF','FTIR','Issue Type CK','Issue Type HW','Issue Type SW','Logs & Video Suspected','Received'];
+    const monthlyDataKeys       = ['month','inProcess','pending','resolved','jobTotal','partReplaced','msil','out','video','crf','ftir','issueCK','issueHW','issueSW','logsVideoSuspected','received'];
+    const dailyDisplayHeaders   = ['Month','Date','In Process','Pending','Resolved','Job Total','Part Replaced Service','MSIL','OUT','Video','CRF','FTIR','Issue Type CK','Issue Type HW','Issue Type SW','Logs & Video Suspected','Received'];
+    const dailyDataKeys         = ['month','date','inProcess','pending','resolved','jobTotal','partReplaced','msil','out','video','crf','ftir','issueCK','issueHW','issueSW','logsVideoSuspected','received'];
+
+    /* ─── EVENTS ─── */
+    monthFilter.addEventListener('change', () => { if (dsrData) generateBtn.disabled = false; });
+    generateBtn.addEventListener('click', generateSummaries);
+    exportBtn.addEventListener('click', exportToExcel);
+    dailyReportBtn.addEventListener('click', generateDailyReport);
+    aboutBtn.addEventListener('click', () => aboutModal.classList.remove('hidden'));
+    closeModalBtn.addEventListener('click', () => aboutModal.classList.add('hidden'));
+    window.addEventListener('click', e => { if (e.target === aboutModal) aboutModal.classList.add('hidden'); });
+
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('.tab-btn');
+        if (btn && btn.dataset.tab) switchTab(btn.dataset.tab);
+    });
+
+    /* ─── TABLE SEARCH ─── */
+    const searchMap = {
+        'top-issues':'top-issues-table',
+        'monthly':'monthly-summary-table',
+        'daily':'daily-summary-table',
+        'replacement':'replacement-summary-table'
+    };
+    Object.keys(searchMap).forEach(id => {
+        const el = document.getElementById(`search-${id}`);
+        if (el) el.addEventListener('input', () => filterTable(searchMap[id], el.value));
+    });
+
+    function filterTable(tableId, q) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const lq = q.toLowerCase().trim();
+        table.querySelectorAll('tbody tr').forEach(row => {
+            if (row.classList.contains('total-row')) { row.style.display = ''; return; }
+            row.style.display = (!lq || row.textContent.toLowerCase().includes(lq)) ? '' : 'none';
         });
-        
-        if (filteredData.length === 0) {
-            hideLoading();
-            showStatus('No data found for the selected month.', 'error');
+    }
+
+    /* ─── POPULATE MONTH FILTER ─── */
+    function populateMonthFilter(data) {
+        const months = extractMonthsFromData(data);
+        if (months.length > 0) {
+            months.forEach(m => monthFilter.add(new Option(m.display, m.value)));
+            monthFilter.disabled = false;
+            generateBtn.disabled = false;
+            dailyReportBtn.disabled = false;
+            toast(`File loaded! ${data.length.toLocaleString()} records · ${months.length} month(s) detected.`, 'success');
+        } else {
+            toast('No valid dates found in "Date Of Register" column.', 'error');
+        }
+    }
+
+    /* ─── GENERATE SUMMARIES ─── */
+    function generateSummaries() {
+        if (!dsrData) return toast('Please upload a DSR file first.', 'error');
+        showLoading('Generating summaries…');
+        const filteredData = getFilteredData();
+        if (!filteredData) return;
+        setTimeout(() => {
+            try {
+                yearSummaryData = {}; yearSummariesContainer.innerHTML = '';
+                generateTopIssuesSummary(filteredData);
+                generateMonthlySummary(filteredData);
+                generateDailySummary(filteredData);
+                generateReplacementSummary(filteredData);
+                generateYearWiseSummaries(filteredData);
+                dashboardContent.style.display = 'block';
+                exportBtn.disabled = false;
+                switchTab('top-issues');
+                hideLoading();
+                dashboardContent.scrollIntoView({ behavior:'smooth', block:'start' });
+                toast('Summaries generated successfully!', 'success');
+            } catch (err) {
+                hideLoading();
+                console.error('Summary Error:', err);
+                toast('Error during summary generation. Check console.', 'error');
+            }
+        }, 100);
+    }
+
+    /* ─── TOP ISSUES ─── */
+    function generateTopIssuesSummary(data) {
+        const issueCounts = {};
+        data.forEach(row => {
+            const orig = String(row['Issue Category'] || '').trim();
+            if (orig) {
+                const lk = orig.toLowerCase();
+                if (!issueCounts[lk]) issueCounts[lk] = { count:0, original:orig };
+                issueCounts[lk].count++;
+            }
+        });
+        const top = Object.values(issueCounts).sort((a,b) => b.count - a.count).slice(0,10);
+        summaryTables.topIssues = top.map(i => ({ 'Issue Category':i.original, 'Issue Count':i.count }));
+        const total = top.reduce((s,i) => s + i.count, 0);
+        animateCount(totalIssuesCount, 0, total, 650);
+        renderTable('top-issues-table', summaryTables.topIssues, ['Issue Category','Issue Count']);
+    }
+
+    function animateCount(el, from, to, dur) {
+        const s = performance.now();
+        const tick = now => {
+            const p = Math.min((now-s)/dur,1);
+            el.textContent = Math.round(from + (to-from) * (1-Math.pow(1-p,3))).toLocaleString();
+            if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    }
+
+    /* ─── MONTHLY SUMMARY ─── */
+    function generateMonthlySummary(data) {
+        const md = {};
+        data.forEach(row => {
+            const date = parseDate(row['Date Of Register']);
+            if (!date || !isValidDate(date)) return;
+            const mv = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+            if (!md[mv]) md[mv] = { month:date.toLocaleDateString('en-US',{month:'short',year:'numeric'}), monthValue:mv, inProcess:0,pending:0,resolved:0,jobTotal:0,partReplaced:0,msil:0,out:0,video:0,crf:0,ftir:0,issueCK:0,issueHW:0,issueSW:0,logsVideoSuspected:0,received:0 };
+            const m = md[mv];
+            m.jobTotal++;
+            if (row['Status Of Job']==='In Process') m.inProcess++;
+            if (row['Status Of Job']==='Pending')    m.pending++;
+            if (row['Status Of Job']==='Resolved')   m.resolved++;
+            if (row['Part Replaced']==='Yes') m.partReplaced++;
+            if (String(row['Part Replaced']).toLowerCase().includes('msil')) m.msil++;
+            if (String(row['Warranty Status']).trim().toUpperCase()==='OUT') m.out++;
+            if (row['Videos']==='Yes') m.video++;
+            if (row['CRF']==='Yes')    m.crf++;
+            if (row['FTIR']==='Yes')   m.ftir++;
+            const it = String(row['Type of Issue Suspected']).trim().toUpperCase();
+            if (it==='CK') m.issueCK++;
+            if (it==='HW') m.issueHW++;
+            if (it==='SW') m.issueSW++;
+            if (logRequiredCategories.includes(String(row['Issue Category']).trim().toLowerCase())) m.logsVideoSuspected++;
+            if (row['Logs Taken']==='Yes') m.received++;
+        });
+        const arr = Object.values(md).sort((a,b)=>new Date(a.monthValue)-new Date(b.monthValue));
+        const totals = calculateTotals(arr,['month','monthValue']); totals.month='Total';
+        summaryTables.monthlySummary = [...arr, totals];
+        renderTable('monthly-summary-table', summaryTables.monthlySummary, monthlyDisplayHeaders, monthlyDataKeys);
+    }
+
+    /* ─── DAILY SUMMARY ─── */
+    function generateDailySummary(data) {
+        const dm = {};
+        data.forEach(row => {
+            const date = parseDate(row['Date Of Register']);
+            if (!date || !isValidDate(date)) return;
+            const ds = formatDateToDDMonYY(date);
+            if (!dm[ds]) dm[ds] = { month:date.toLocaleDateString('en-US',{month:'short',year:'numeric'}), date:ds, dateObj:date, inProcess:0,pending:0,resolved:0,jobTotal:0,partReplaced:0,msil:0,out:0,video:0,crf:0,ftir:0,issueCK:0,issueHW:0,issueSW:0,logsVideoSuspected:0,received:0 };
+            const d = dm[ds];
+            d.jobTotal++;
+            if (row['Status Of Job']==='In Process') d.inProcess++;
+            if (row['Status Of Job']==='Pending')    d.pending++;
+            if (row['Status Of Job']==='Resolved')   d.resolved++;
+            if (row['Part Replaced']==='Yes') d.partReplaced++;
+            if (String(row['Part Replaced']).toLowerCase().includes('msil')) d.msil++;
+            if (String(row['Warranty Status']).trim().toUpperCase()==='OUT') d.out++;
+            if (row['Videos']==='Yes') d.video++;
+            if (row['CRF']==='Yes')    d.crf++;
+            if (row['FTIR']==='Yes')   d.ftir++;
+            const it = String(row['Type of Issue Suspected']).trim().toUpperCase();
+            if (it==='CK') d.issueCK++;
+            if (it==='HW') d.issueHW++;
+            if (it==='SW') d.issueSW++;
+            if (logRequiredCategories.includes(String(row['Issue Category']).trim().toLowerCase())) d.logsVideoSuspected++;
+            if (row['Logs Taken']==='Yes') d.received++;
+        });
+        const arr = Object.values(dm).sort((a,b)=>a.dateObj-b.dateObj);
+        const totals = calculateTotals(arr,['month','date','dateObj']); totals.month='Total'; totals.date='';
+        summaryTables.dailySummary = [...arr,totals].map(({dateObj,...rest})=>rest);
+        renderTable('daily-summary-table', summaryTables.dailySummary, dailyDisplayHeaders, dailyDataKeys);
+    }
+
+    /* ─── REPLACEMENT SUMMARY ─── */
+    function generateReplacementSummary(data) {
+        const replacedData = data.filter(row => String(row['Part Replaced']||'').trim().toUpperCase()==='YES');
+        const allDa2 = new Set();
+        data.forEach(row => { const m=String(row['DA2- Model']||'').trim().toUpperCase(); if(m) allDa2.add(m); });
+        const avail    = Array.from(allDa2);
+        const sorted   = customModelOrder.filter(m => avail.includes(m));
+        const remaining= avail.filter(m => !customModelOrder.includes(m)).sort();
+        const allModels= [...sorted, ...remaining];
+
+        if (replacedData.length === 0) {
+            const emptyRow = { 'Issue/DA2 Model':'No replacement data' };
+            allModels.forEach(m => emptyRow[m]=0); emptyRow.Total=0;
+            const totalRow = { 'Issue/DA2 Model':'Total' };
+            allModels.forEach(m => totalRow[m]=0); totalRow.Total=0;
+            summaryTables.replacementSummary = [emptyRow, totalRow];
+            renderTable('replacement-summary-table', summaryTables.replacementSummary, ['Issue/DA2 Model',...allModels,'Total'], [], true);
             return;
         }
+
+        const counts={}, fmtMap={};
+        replacedData.forEach(row => {
+            const orig = String(row['Issue Category']||'').trim();
+            const da2  = String(row['DA2- Model']||'').trim().toUpperCase();
+            if (da2 && orig) {
+                const lk = orig.toLowerCase();
+                if (!fmtMap[lk]) fmtMap[lk]=orig;
+                if (!counts[lk]) counts[lk]={};
+                counts[lk][da2]=(counts[lk][da2]||0)+1;
+            }
+        });
+
+        const rows = Object.keys(counts).map(lk => {
+            const r={'Issue/DA2 Model':fmtMap[lk]};
+            allModels.forEach(m=>r[m]=0);
+            Object.keys(counts[lk]).forEach(m=>{ if(allModels.includes(m)) r[m]=counts[lk][m]; });
+            r.Total=allModels.reduce((s,m)=>s+r[m],0);
+            return r;
+        });
+        rows.sort((a,b)=>b.Total-a.Total);
+
+        const totalRow={'Issue/DA2 Model':'Total'};
+        allModels.forEach(m=>{ totalRow[m]=rows.reduce((s,r)=>s+(r[m]||0),0); });
+        totalRow.Total=rows.reduce((s,r)=>s+r.Total,0);
+
+        summaryTables.replacementSummary=[...rows,totalRow];
+        renderTable('replacement-summary-table', summaryTables.replacementSummary, ['Issue/DA2 Model',...allModels,'Total'], [], true);
     }
 
-    try {
-        // Create a new workbook
-        const wb = XLSX.utils.book_new();
-        
-        // Sheet 1: "Current Year" Summary
-        createCurrentYearSummarySheet(wb, filteredData);
-        
-        // Sheet 2: "Current Year" - All DSR Data
-        createAllDataSheet(wb, filteredData);
-        
-        // Sheets for recent months
-        createMonthlySheets(wb, filteredData);
-        
-        // Generate file and trigger download
-        XLSX.writeFile(wb, 'Daily_DSR_Report.xlsx');
-        
-        hideLoading();
-        showStatus('Daily DSR Report generated successfully!', 'success');
-    } catch (error) {
-        hideLoading();
-        console.error('Error generating Daily DSR Report:', error);
-        showStatus('Error generating Daily DSR Report. Please check the file format.', 'error');
+    /* ─── YEAR-WISE SUMMARIES ─── */
+    function generateYearWiseSummaries(data) {
+        const byYear={};
+        data.forEach(row => {
+            const date=parseDate(row['Date Of Register']);
+            if (date&&isValidDate(date)) {
+                const y=date.getFullYear();
+                if (!byYear[y]) byYear[y]=[];
+                byYear[y].push(row);
+            }
+        });
+        yearTabs.forEach(tabId => {
+            const btn=document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+            if (btn) btn.remove();
+            const c=document.getElementById(tabId);
+            if (c) c.remove();
+        });
+        yearTabs=[];
+        Object.keys(byYear).sort().forEach(year => {
+            if (byYear[year].length>0) {
+                const ys=generateYearSummaryData(year, byYear[year]);
+                yearSummaryData[year]=ys;
+                createYearSummaryTab(year, ys);
+            }
+        });
     }
-}
 
-function createCurrentYearSummarySheet(wb, data) {
-    const ws = XLSX.utils.aoa_to_sheet([]);
-    
-    // Add Monthly Summary
-    const monthlySummary = generateMonthlySummaryForReport(data);
-    XLSX.utils.sheet_add_aoa(ws, [["MONTHLY SUMMARY"]], { origin: "A1" });
-    XLSX.utils.sheet_add_aoa(ws, monthlySummary.headers, { origin: "A3" });
-    XLSX.utils.sheet_add_aoa(ws, monthlySummary.data, { origin: "A4" });
-    
-    // Add Top Issues
-    const topIssues = generateTopIssuesForReport(data);
-    const topIssuesStartRow = monthlySummary.data.length + 6;
-    XLSX.utils.sheet_add_aoa(ws, [["TOP ISSUES"]], { origin: `A${topIssuesStartRow}` });
-    XLSX.utils.sheet_add_aoa(ws, topIssues.headers, { origin: `A${topIssuesStartRow + 2}` });
-    XLSX.utils.sheet_add_aoa(ws, topIssues.data, { origin: `A${topIssuesStartRow + 3}` });
-    
-    // Add Replacement Summary
-    const replacementSummary = generateReplacementSummaryForReport(data);
-    const replacementStartRow = topIssuesStartRow + topIssues.data.length + 5;
-    XLSX.utils.sheet_add_aoa(ws, [["REPLACEMENT SUMMARY"]], { origin: `A${replacementStartRow}` });
-    XLSX.utils.sheet_add_aoa(ws, replacementSummary.headers, { origin: `A${replacementStartRow + 2}` });
-    XLSX.utils.sheet_add_aoa(ws, replacementSummary.data, { origin: `A${replacementStartRow + 3}` });
-    
-    XLSX.utils.book_append_sheet(wb, ws, "Current Year Summary");
-}
+    function createYearSummaryTab(year, ys) {
+        const tabId=`year-${year}`;
+        yearTabs.push(tabId);
 
-function createAllDataSheet(wb, data) {
-    if (data.length === 0) return;
-    
-    // Get all unique column names
-    const allColumns = new Set();
-    data.forEach(row => {
-        Object.keys(row).forEach(key => allColumns.add(key));
-    });
-    const columns = Array.from(allColumns);
-    
-    // Create headers
-    const headers = [columns];
-    
-    // Create data rows
-    const rows = data.map(row => {
-        return columns.map(col => row[col] || '');
-    });
-    
-    const allData = [...headers, ...rows];
-    const ws = XLSX.utils.aoa_to_sheet(allData);
-    XLSX.utils.book_append_sheet(wb, ws, "Current Year");
-}
+        const btn=document.createElement('button');
+        btn.className='tab-btn'; btn.dataset.tab=tabId;
+        btn.innerHTML=`📋 ${year} <span class="tab-badge">${ys.totalJobs||0}</span>`;
+        tabNav.appendChild(btn);
 
-function createMonthlySheets(wb, data) {
-    if (data.length === 0) return;
-    
-    // Extract unique months
-    const monthsSet = new Set();
-    const monthDataMap = new Map();
-    
-    data.forEach(row => {
-        if (row['Date Of Register']) {
-            const date = parseDate(row['Date Of Register']);
-            if (date && !isNaN(date)) {
-                const monthValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                const monthDisplay = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                
-                if (!monthDataMap.has(monthValue)) {
-                    monthDataMap.set(monthValue, []);
-                    monthsSet.add(JSON.stringify({ value: monthValue, display: monthDisplay }));
+        const tc=document.createElement('div');
+        tc.id=tabId; tc.className='tab-content';
+        tc.innerHTML=`
+            <div class="card" style="padding:24px;">
+                <div class="sec-hdr" style="margin-bottom:24px;">
+                    <div>
+                        <div class="sec-title">📋 ${year} Year Summary</div>
+                        <div class="sec-sub">Full breakdown for calendar year ${year}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <span class="badge badge-blue">${ys.monthly.data?ys.monthly.data.length-1:0} Months</span>
+                        <span class="badge badge-green">${ys.totalJobs||0} Total Jobs</span>
+                    </div>
+                </div>
+                <div class="yr-sub">
+                    <div class="yr-sub-title">📅 Monthly Summary</div>
+                    <div class="tbl-wrap"><table id="${tabId}-monthly-table"><thead></thead><tbody></tbody></table></div>
+                </div>
+                <div class="yr-sub">
+                    <div class="yr-sub-title">🔥 Top 10 Issues</div>
+                    <div class="tbl-wrap"><table id="${tabId}-top-issues-table"><thead></thead><tbody></tbody></table></div>
+                </div>
+                <div class="yr-sub">
+                    <div class="yr-sub-title">🔧 Replacement Summary</div>
+                    <div class="tbl-wrap"><table id="${tabId}-replacement-table"><thead></thead><tbody></tbody></table></div>
+                </div>
+            </div>`;
+        yearSummariesContainer.appendChild(tc);
+
+        if (ys.monthly&&ys.monthly.data&&ys.monthly.data.length>0) {
+            const d=ys.monthly.data.map(r=>{ const o={}; monthlyDataKeys.forEach((k,i)=>o[k]=r[i]); return o; });
+            renderTable(`${tabId}-monthly-table`, d, monthlyDisplayHeaders, monthlyDataKeys);
+        }
+        if (ys.topIssues&&ys.topIssues.data&&ys.topIssues.data.length>0) {
+            renderTable(`${tabId}-top-issues-table`, ys.topIssues.data.map(r=>({'Issue Category':r[0],'Issue Count':r[1]})), ['Issue Category','Issue Count']);
+        }
+        if (ys.replacement&&ys.replacement.data&&ys.replacement.data.length>0) {
+            const hdrs=ys.replacement.headers[0]||[];
+            const repD=ys.replacement.data.map(r=>{ const o={}; hdrs.forEach((h,i)=>o[h]=r[i]); return o; });
+            renderTable(`${tabId}-replacement-table`, repD, hdrs, [], true);
+        }
+    }
+
+    function generateYearSummaryData(year, yearData) {
+        const ms=generateMonthlySummaryForReport(yearData);
+        const ti=generateTopIssuesForReport(yearData);
+        const rs=generateReplacementSummaryForReport(yearData);
+        let totalJobs=0;
+        if (ms.data&&ms.data.length>0) {
+            const tr=ms.data.find(r=>r[0]==='Total');
+            if (tr&&tr[4]) totalJobs=tr[4];
+        }
+        return { monthly:ms, topIssues:ti, replacement:rs, totalJobs };
+    }
+
+    /* ─── DAILY REPORT EXPORT ─── */
+    function generateDailyReport() {
+        if (!dsrData) return toast('Please upload a DSR file first.', 'error');
+        showLoading('Generating Daily DSR Report…');
+        const filteredData=getFilteredData();
+        if (!filteredData) return;
+        try {
+            generateTopIssuesSummary(filteredData);
+            generateMonthlySummary(filteredData);
+            generateReplacementSummary(filteredData);
+            const wb=XLSX.utils.book_new();
+            createYearWiseSummarySheets(wb, filteredData);
+            createMonthlySheets(wb, filteredData);
+            XLSX.writeFile(wb, `DSR_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+            hideLoading();
+            toast('Daily DSR Report generated successfully!', 'success');
+        } catch (err) {
+            hideLoading();
+            console.error('Report Error:', err);
+            toast('Error generating Daily DSR Report. Check console.', 'error');
+        }
+    }
+
+    /* ─── EXCEL HELPER FUNCTIONS ─── */
+    function createYearWiseSummarySheets(wb, data) {
+        const byYear={};
+        data.forEach(row => {
+            const d=parseDate(row['Date Of Register']);
+            if (d&&isValidDate(d)) { const y=d.getFullYear(); if(!byYear[y]) byYear[y]=[]; byYear[y].push(row); }
+        });
+        Object.keys(byYear).sort().forEach(year => { if(byYear[year].length>0) createYearSummarySheetForExcel(wb,year,byYear[year]); });
+    }
+
+    function createYearSummarySheetForExcel(wb, year, yearData) {
+        try {
+            const ws=XLSX.utils.aoa_to_sheet([]); let r=1;
+            XLSX.utils.sheet_add_aoa(ws,[[`${year} - YEARLY SUMMARY`]],{origin:`A${r}`}); r+=2;
+            const ms=generateMonthlySummaryForReport(yearData);
+            if (ms.data&&ms.data.length>0) {
+                XLSX.utils.sheet_add_aoa(ws,[['MONTHLY SUMMARY']],{origin:`A${r}`}); r++;
+                XLSX.utils.sheet_add_aoa(ws,ms.headers,{origin:`A${r}`}); r++;
+                XLSX.utils.sheet_add_aoa(ws,ms.data,{origin:`A${r}`}); r+=ms.data.length+2;
+            }
+            const ti=generateTopIssuesForReport(yearData);
+            if (ti.data&&ti.data.length>0) {
+                XLSX.utils.sheet_add_aoa(ws,[['TOP 10 ISSUES']],{origin:`A${r}`}); r++;
+                XLSX.utils.sheet_add_aoa(ws,ti.headers,{origin:`A${r}`}); r++;
+                XLSX.utils.sheet_add_aoa(ws,ti.data,{origin:`A${r}`}); r+=ti.data.length+2;
+            }
+            const rs=generateReplacementSummaryForReport(yearData);
+            if (rs.data&&rs.data.length>0) {
+                XLSX.utils.sheet_add_aoa(ws,[['REPLACEMENT SUMMARY']],{origin:`A${r}`}); r++;
+                XLSX.utils.sheet_add_aoa(ws,rs.headers,{origin:`A${r}`}); r++;
+                XLSX.utils.sheet_add_aoa(ws,rs.data,{origin:`A${r}`});
+            }
+            ws['!cols']=Array(20).fill({wch:15});
+            XLSX.utils.book_append_sheet(wb,ws,`${year} Summary`);
+        } catch(err) { console.error(`Sheet error year ${year}:`,err); throw err; }
+    }
+
+    function generateMonthlySummaryForReport(data) {
+        try {
+            const md={};
+            data.forEach(row => {
+                const date=parseDate(row['Date Of Register']);
+                if (!date||!isValidDate(date)) return;
+                const mv=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+                if (!md[mv]) md[mv]={ month:date.toLocaleDateString('en-US',{month:'short',year:'numeric'}), monthValue:mv, inProcess:0,pending:0,resolved:0,jobTotal:0,partReplaced:0,msil:0,out:0,video:0,crf:0,ftir:0,issueCK:0,issueHW:0,issueSW:0,logsVideoSuspected:0,received:0 };
+                const m=md[mv]; m.jobTotal++;
+                if (row['Status Of Job']==='In Process') m.inProcess++;
+                if (row['Status Of Job']==='Pending')    m.pending++;
+                if (row['Status Of Job']==='Resolved')   m.resolved++;
+                if (row['Part Replaced']==='Yes') m.partReplaced++;
+                if (String(row['Part Replaced']).toLowerCase().includes('msil')) m.msil++;
+                if (String(row['Warranty Status']).trim().toUpperCase()==='OUT') m.out++;
+                if (row['Videos']==='Yes') m.video++;
+                if (row['CRF']==='Yes') m.crf++;
+                if (row['FTIR']==='Yes') m.ftir++;
+                const it=String(row['Type of Issue Suspected']).trim().toUpperCase();
+                if (it==='CK') m.issueCK++;
+                if (it==='HW') m.issueHW++;
+                if (it==='SW') m.issueSW++;
+                if (logRequiredCategories.includes(String(row['Issue Category']).trim().toLowerCase())) m.logsVideoSuspected++;
+                if (row['Logs Taken']==='Yes') m.received++;
+            });
+            const arr=Object.values(md).sort((a,b)=>new Date(a.monthValue)-new Date(b.monthValue));
+            const t=calculateTotals(arr,['month','monthValue']); t.month='Total';
+            return { headers:[monthlyDisplayHeaders], data:[...arr,t].map(r=>monthlyDataKeys.map(k=>r[k])) };
+        } catch(err) { return {headers:[[]],data:[]}; }
+    }
+
+    function generateTopIssuesForReport(data) {
+        try {
+            const ic={};
+            data.forEach(row => { const o=String(row['Issue Category']||'').trim(); if(o){const lk=o.toLowerCase(); if(!ic[lk]) ic[lk]={count:0,original:o}; ic[lk].count++;} });
+            const top=Object.values(ic).sort((a,b)=>b.count-a.count).slice(0,10);
+            return { headers:[['Issue Category','Issue Count']], data:top.map(i=>[i.original,i.count]) };
+        } catch(err) { return {headers:[[]],data:[]}; }
+    }
+
+    function generateReplacementSummaryForReport(data) {
+        try {
+            const replacedData=data.filter(row=>String(row['Part Replaced']||'').trim().toUpperCase()==='YES');
+            const allDa2=new Set();
+            data.forEach(row=>{ const m=String(row['DA2- Model']||'').trim().toUpperCase(); if(m) allDa2.add(m); });
+            const avail=Array.from(allDa2);
+            const sorted=customModelOrder.filter(m=>avail.includes(m));
+            const rem=avail.filter(m=>!customModelOrder.includes(m)).sort();
+            const all=[...sorted,...rem];
+
+            if (replacedData.length===0) {
+                const h=['Issue/DA2 Model',...all,'Total'];
+                return { headers:[h], data:[['No replacement data',...all.map(()=>0),0],['Total',...all.map(()=>0),0]] };
+            }
+
+            const counts={}, fmt={};
+            replacedData.forEach(row=>{
+                const o=String(row['Issue Category']||'').trim(), m=String(row['DA2- Model']||'').trim().toUpperCase();
+                if(m&&o){ const lk=o.toLowerCase(); if(!fmt[lk]) fmt[lk]=o; if(!counts[lk]) counts[lk]={}; counts[lk][m]=(counts[lk][m]||0)+1; }
+            });
+
+            const rows=Object.keys(counts).map(lk=>{
+                const r={'Issue/DA2 Model':fmt[lk]};
+                all.forEach(m=>r[m]=0);
+                Object.keys(counts[lk]).forEach(m=>{ if(all.includes(m)) r[m]=counts[lk][m]; });
+                r.Total=all.reduce((s,m)=>s+r[m],0);
+                return r;
+            });
+            rows.sort((a,b)=>b.Total-a.Total);
+            const tr={'Issue/DA2 Model':'Total'};
+            all.forEach(m=>{ tr[m]=rows.reduce((s,r)=>s+(r[m]||0),0); });
+            tr.Total=rows.reduce((s,r)=>s+r.Total,0);
+            const h=['Issue/DA2 Model',...all,'Total'];
+            return { headers:[h], data:[tr,...rows].map(r=>h.map(k=>r[k])) };
+        } catch(err) { return {headers:[[]],data:[]}; }
+    }
+
+    function createMonthlySheets(wb, data) {
+        try {
+            const mm=data.reduce((acc,row)=>{ const d=parseDate(row['Date Of Register']); if(d&&isValidDate(d)){ const mv=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(!acc[mv]) acc[mv]={data:[],display:d.toLocaleDateString('en-US',{month:'short',year:'numeric'})}; acc[mv].data.push(row); } return acc; },{});
+            Object.keys(mm).sort().slice(-4).forEach(mv=>{
+                const mi=mm[mv]; if(!mi.data.length) return;
+                const ws=XLSX.utils.aoa_to_sheet([]);
+                const ds=generateDailySummaryForMonth(mi.data);
+                if (ds.data&&ds.data.length>0) { XLSX.utils.sheet_add_aoa(ws,[[`DAILY SUMMARY - ${mi.display}`]],{origin:"A1"}); XLSX.utils.sheet_add_aoa(ws,ds.headers,{origin:"A3"}); XLSX.utils.sheet_add_aoa(ws,ds.data,{origin:"A4"}); }
+                const ti=generateTopIssuesForMonth(mi.data);
+                if (ti.data&&ti.data.length>0) { const sc=ds.headers[0].length+2; XLSX.utils.sheet_add_aoa(ws,[[`TOP ISSUES - ${mi.display}`]],{origin:XLSX.utils.encode_col(sc)+"1"}); XLSX.utils.sheet_add_aoa(ws,ti.headers,{origin:XLSX.utils.encode_col(sc)+"3"}); XLSX.utils.sheet_add_aoa(ws,ti.data,{origin:XLSX.utils.encode_col(sc)+"4"}); }
+                XLSX.utils.book_append_sheet(wb,ws,mi.display.substring(0,31));
+            });
+        } catch(err) { console.error('createMonthlySheets error:',err); }
+    }
+
+    function generateDailySummaryForMonth(monthData) {
+        try { generateDailySummary(monthData); return { headers:[dailyDisplayHeaders], data:(summaryTables.dailySummary||[]).map(r=>dailyDataKeys.map(k=>r[k])) }; }
+        catch(err) { return {headers:[[]],data:[]}; }
+    }
+    function generateTopIssuesForMonth(monthData) {
+        try { generateTopIssuesSummary(monthData); return { headers:[['Issue Category','Issue Count']], data:(summaryTables.topIssues||[]).map(r=>[r['Issue Category'],r['Issue Count']]) }; }
+        catch(err) { return {headers:[[]],data:[]}; }
+    }
+
+    /* ─── UTILITIES ─── */
+    function getFilteredData() {
+        const sel=monthFilter.value;
+        if (sel==='all') return dsrData;
+        const f=dsrData.filter(row=>{ const d=parseDate(row['Date Of Register']); return d&&isValidDate(d)&&`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===sel; });
+        if (!f.length) { hideLoading(); toast('No data found for the selected month.','error'); return null; }
+        return f;
+    }
+
+    function renderTable(tableId, data, displayHeaders=[], dataKeys=[], stickyFirst=false) {
+        try {
+            const table=document.getElementById(tableId);
+            if (!table) { console.error('Table not found:',tableId); return; }
+            const thead=table.querySelector('thead'), tbody=table.querySelector('tbody');
+            if (!thead||!tbody) return;
+
+            if (!data||!data.length) {
+                thead.innerHTML='';
+                tbody.innerHTML=`<tr><td colspan="${displayHeaders.length||1}" style="text-align:center;padding:44px;color:var(--txt-muted);font-family:'Outfit',sans-serif;"><div style="font-size:32px;margin-bottom:10px;opacity:.35;">📭</div><div style="font-size:13.5px;font-weight:600;">No data available</div></td></tr>`;
+                return;
+            }
+
+            const hdrs = displayHeaders.length ? displayHeaders : Object.keys(data[0]);
+            const keys = dataKeys.length ? dataKeys : hdrs;
+
+            thead.innerHTML='';
+            const hr=document.createElement('tr');
+            hdrs.forEach((h,i) => { const th=document.createElement('th'); th.textContent=h; if(stickyFirst&&i===0) th.classList.add('sticky-col'); hr.appendChild(th); });
+            thead.appendChild(hr);
+
+            tbody.innerHTML='';
+            data.forEach(row => {
+                const tr=document.createElement('tr');
+                const isTotal = row['Issue/DA2 Model']==='Total' || row.month==='Total';
+                if (isTotal) tr.classList.add('total-row');
+
+                keys.forEach((k,i) => {
+                    const td=document.createElement('td');
+                    const val=row[k]!==undefined?row[k]:'';
+                    td.textContent=val;
+                    if (stickyFirst&&i===0) td.classList.add('sticky-col');
+                    if (typeof val==='number'&&!isTotal) {
+                        td.classList.add(val===0?'n-zero':'n-pos');
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        } catch(err) { console.error('renderTable error',tableId,err); }
+    }
+
+    function calculateTotals(data, nonNumericKeys=[]) {
+        return data.reduce((acc,row) => { for(const k in row) if(!nonNumericKeys.includes(k)&&typeof row[k]==='number') acc[k]=(acc[k]||0)+row[k]; return acc; }, {});
+    }
+
+    function extractMonthsFromData(data) {
+        const s=data.reduce((acc,row) => {
+            const d=parseDate(row['Date Of Register']);
+            if(d&&isValidDate(d)) { const v=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; acc.add(JSON.stringify({value:v,display:d.toLocaleDateString('en-US',{month:'short',year:'numeric'})})); }
+            return acc;
+        }, new Set());
+        return Array.from(s,JSON.parse).sort((a,b)=>new Date(a.value)-new Date(b.value));
+    }
+
+    function readExcelFile(file) {
+        return new Promise((resolve,reject) => {
+            const reader=new FileReader();
+            reader.onload=e => { try { const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:false}); resolve(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:true})); } catch(err){reject(err);} };
+            reader.onerror=err=>reject(err);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function parseDate(v) {
+        if (v===null||v===undefined) return null;
+        if (v instanceof Date) return isValidDate(v)?v:null;
+        if (typeof v==='number'&&v>25569) { const d=new Date(Math.round((v-25569)*86400*1000)); return isValidDate(d)?d:null; }
+        if (typeof v==='string') { const d=new Date(v.trim().replace(/(\d+)(st|nd|rd|th)/gi,'$1')); return isValidDate(d)?d:null; }
+        return null;
+    }
+
+    function isValidDate(d) { return d instanceof Date&&!isNaN(d)&&d.getFullYear()>1980; }
+    function formatDateToDDMonYY(d) { return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}).replace(/ /g,'-'); }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+        const ab=document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+        if (ab) ab.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+        const ac=document.getElementById(tabId);
+        if (ac) ac.classList.add('active');
+    }
+
+    function resetDashboard() {
+        dashboardContent.style.display='none';
+        exportBtn.disabled=true; generateBtn.disabled=true; dailyReportBtn.disabled=true;
+        monthFilter.disabled=true; monthFilter.innerHTML='<option value="all">All Months</option>';
+        totalIssuesCount.textContent='0';
+        yearTabs.forEach(id=>{ const b=document.querySelector(`.tab-btn[data-tab="${id}"]`); if(b)b.remove(); });
+        yearTabs=[]; yearSummariesContainer.innerHTML=''; yearSummaryData={};
+    }
+
+    function exportToExcel() {
+        if (!Object.keys(summaryTables).length) return toast('Please generate summaries first.','error');
+        showLoading('Exporting to Excel…');
+        try {
+            const wb=XLSX.utils.book_new();
+            for (const k in summaryTables) {
+                if (summaryTables[k].length>0) {
+                    const sn=k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()).substring(0,31);
+                    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summaryTables[k]),sn);
                 }
-                monthDataMap.get(monthValue).push(row);
             }
-        }
-    });
-    
-    // Get all months sorted in ascending order (oldest first)
-    const monthsArray = Array.from(monthsSet).map(str => JSON.parse(str));
-    monthsArray.sort((a, b) => {
-        const dateA = new Date(a.value + '-01');
-        const dateB = new Date(b.value + '-01');
-        return dateA - dateB; // Ascending order (oldest first)
-    });
-    
-    // Get recent months (last 4 months) but keep them in ascending order
-    const recentMonths = monthsArray.slice(-4); // Last 4 months (ascending order)
-    
-    recentMonths.forEach(month => {
-        const monthData = monthDataMap.get(month.value) || [];
-        if (monthData.length === 0) return;
-        
-        const ws = XLSX.utils.aoa_to_sheet([]);
-        const monthStr = month.display;
-        
-        // Daily Summary for this month
-        const dailySummary = generateDailySummaryForMonth(monthData, month.value);
-        XLSX.utils.sheet_add_aoa(ws, [[`DAILY SUMMARY - ${monthStr}`]], { origin: "A1" });
-        XLSX.utils.sheet_add_aoa(ws, dailySummary.headers, { origin: "A3" });
-        XLSX.utils.sheet_add_aoa(ws, dailySummary.data, { origin: "A4" });
-        
-        // Top Issues for this month
-        const topIssues = generateTopIssuesForMonth(monthData);
-        const topIssuesStartCol = dailySummary.headers[0].length + 3;
-        XLSX.utils.sheet_add_aoa(ws, [[`TOP ISSUES - ${monthStr}`]], { origin: XLSX.utils.encode_col(topIssuesStartCol) + "1" });
-        XLSX.utils.sheet_add_aoa(ws, topIssues.headers, { origin: XLSX.utils.encode_col(topIssuesStartCol) + "3" });
-        XLSX.utils.sheet_add_aoa(ws, topIssues.data, { origin: XLSX.utils.encode_col(topIssuesStartCol) + "4" });
-        
-        XLSX.utils.book_append_sheet(wb, ws, monthStr.substring(0, 31)); // Excel sheet name limit
-    });
-}
-function generateMonthlySummaryForReport(data) {
-    if (!data || data.length === 0) return { headers: [], data: [] };
-    
-    // Group data by month
-    const monthlyData = {};
-    data.forEach(row => {
-        if (!row['Date Of Register']) return;
-        
-        const date = parseDate(row['Date Of Register']);
-        if (!date || isNaN(date)) return;
-        
-        const monthValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const monthDisplay = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        if (!monthlyData[monthValue]) {
-            monthlyData[monthValue] = {
-                month: monthDisplay,
-                monthValue: monthValue, // Store for sorting
-                inProcess: 0,
-                pending: 0,
-                resolved: 0,
-                jobTotal: 0,
-                partReplaced: 0,
-                msil: 0,
-                out: 0,
-                video: 0,
-                crf: 0,
-                ftir: 0,
-                issueCK: 0,
-                issueHW: 0,
-                issueSW: 0,
-                logsVideoSuspected: 0,
-                received: 0
-            };
-        }
-        
-        const month = monthlyData[monthValue];
-        month.jobTotal++;
-        
-        // Status counts
-        if (row['Status Of Job'] === 'In Process') month.inProcess++;
-        if (row['Status Of Job'] === 'Pending') month.pending++;
-        if (row['Status Of Job'] === 'Resolved') month.resolved++;
-        
-        // Part replacement counts
-        if (row['Part Replaced'] === 'Yes') month.partReplaced++;
-        if (String(row['Part Replaced']).toLowerCase().includes('msil')) month.msil++;
-        
-        // Warranty status
-        if (String(row['Warranty Status']).trim().toUpperCase() === 'OUT') month.out++;
-        
-        // Documentation counts
-        if (row['Videos'] === 'Yes') month.video++;
-        if (row['CRF'] === 'Yes') month.crf++;
-        if (row['FTIR'] === 'Yes') month.ftir++;
-        
-        // Issue type counts
-        const issueType = String(row['Type of Issue Suspected']).trim().toUpperCase();
-        if (issueType === 'CK') month.issueCK++;
-        if (issueType === 'HW') month.issueHW++;
-        if (issueType === 'SW') month.issueSW++;
-        
-        // Logs and video counts for specific categories
-        const issueCategory = String(row['Issue Category']).trim().toLowerCase();
-        if (logRequiredCategories.includes(issueCategory)) {
-            month.logsVideoSuspected++;
-        }
-        
-        if (row['Logs Taken'] === 'Yes') month.received++;
-    });
-    
-    // Convert to array and sort by date (ascending order - Jan to Current)
-    const monthlyArray = Object.values(monthlyData).sort((a, b) => {
-        return new Date(a.monthValue + '-01') - new Date(b.monthValue + '-01');
-    });
-    
-    // Add total row
-    const totals = {
-        month: 'Total',
-        monthValue: '',
-        inProcess: monthlyArray.reduce((sum, month) => sum + month.inProcess, 0),
-        pending: monthlyArray.reduce((sum, month) => sum + month.pending, 0),
-        resolved: monthlyArray.reduce((sum, month) => sum + month.resolved, 0),
-        jobTotal: monthlyArray.reduce((sum, month) => sum + month.jobTotal, 0),
-        partReplaced: monthlyArray.reduce((sum, month) => sum + month.partReplaced, 0),
-        msil: monthlyArray.reduce((sum, month) => sum + month.msil, 0),
-        out: monthlyArray.reduce((sum, month) => sum + month.out, 0),
-        video: monthlyArray.reduce((sum, month) => sum + month.video, 0),
-        crf: monthlyArray.reduce((sum, month) => sum + month.crf, 0),
-        ftir: monthlyArray.reduce((sum, month) => sum + month.ftir, 0),
-        issueCK: monthlyArray.reduce((sum, month) => sum + month.issueCK, 0),
-        issueHW: monthlyArray.reduce((sum, month) => sum + month.issueHW, 0),
-        issueSW: monthlyArray.reduce((sum, month) => sum + month.issueSW, 0),
-        logsVideoSuspected: monthlyArray.reduce((sum, month) => sum + month.logsVideoSuspected, 0),
-        received: monthlyArray.reduce((sum, month) => sum + month.received, 0)
-    };
-    
-    monthlyArray.push(totals);
-    
-    // Prepare headers and data for Excel
-    const headers = [
-        'Month', 'In Process', 'Pending', 'Resolved', 'Job Total',
-        'Part Replaced Service', 'MSIL', 'OUT', 'Video', 'CRF', 'FTIR',
-        'Issue Type CK', 'Issue Type HW', 'Issue Type SW',
-        'Logs & Video Suspected', 'Received'
-    ];
-    
-    const dataRows = monthlyArray.map(month => [
-        month.month, month.inProcess, month.pending, month.resolved, month.jobTotal,
-        month.partReplaced, month.msil, month.out, month.video, month.crf, month.ftir,
-        month.issueCK, month.issueHW, month.issueSW, month.logsVideoSuspected, month.received
-    ]);
-    
-    return { headers: [headers], data: dataRows };
-}
-function generateTopIssuesForReport(data) {
-    if (!data || data.length === 0) return { headers: [], data: [] };
-    
-    // Count issues by category
-    const issueCounts = {};
-    data.forEach(row => {
-        if (row['Issue Category']) {
-            const category = String(row['Issue Category']).trim();
-            if (category) {
-                const lowerCategory = category.toLowerCase();
-                issueCounts[lowerCategory] = (issueCounts[lowerCategory] || 0) + 1;
-            }
-        }
-    });
-    
-    // Convert to array and sort by count (descending)
-    const issuesArray = Object.entries(issueCounts)
-        .map(([category, count]) => ({ category, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10); // Top 10
-    
-    // Format category names (capitalize first letter of each word)
-    issuesArray.forEach(issue => {
-        issue.formattedCategory = issue.category
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    });
-    
-    const headers = [['Issue Category', 'Issue Count']];
-    const dataRows = issuesArray.map(issue => [issue.formattedCategory, issue.count]);
-    
-    return { headers, data: dataRows };
-}
-
-function generateReplacementSummaryForReport(data) {
-    // Filter only rows where part was replaced
-    const replacedData = data.filter(row => 
-        String(row['Part Replaced']).trim().toUpperCase() === 'YES'
-    );
-    
-    if (replacedData.length === 0) {
-        return { headers: [['Issue/DA2 Model']], data: [['No replacement data found']] };
+            XLSX.writeFile(wb,'DSR_Analytics_Summary.xlsx');
+            hideLoading(); toast('Export successful! File saved.','success');
+        } catch(err) { hideLoading(); console.error(err); toast('Error exporting to Excel.','error'); }
     }
-    
-    // Count issues by category and DA2 model
-    const replacementCounts = {};
-    const da2Models = new Set();
-    
-    replacedData.forEach(row => {
-        const issueCategory = String(row['Issue Category']).trim();
-        const da2Model = String(row['DA2- Model']).trim();
-        
-        if (!da2Model || !issueCategory) return;
-        
-        da2Models.add(da2Model);
-        
-        if (!replacementCounts[issueCategory]) {
-            replacementCounts[issueCategory] = {};
-        }
-        
-        replacementCounts[issueCategory][da2Model] = 
-            (replacementCounts[issueCategory][da2Model] || 0) + 1;
-    });
-    
-    // Convert to array format
-    const replacementArray = [];
-    const sortedModels = Array.from(da2Models).sort();
-    
-    // Add header row
-    const headerRow = { issueCategory: 'Issue/DA2 Model' };
-    sortedModels.forEach(model => {
-        headerRow[model] = model;
-    });
-    replacementArray.push(headerRow);
-    
-    // Add data rows
-    Object.entries(replacementCounts).forEach(([issueCategory, modelCounts]) => {
-        const row = { issueCategory };
-        sortedModels.forEach(model => {
-            row[model] = modelCounts[model] || 0;
-        });
-        replacementArray.push(row);
-    });
-    
-    // Add total row
-    const totalRow = { issueCategory: 'Total' };
-    sortedModels.forEach(model => {
-        totalRow[model] = replacementArray.slice(1).reduce((sum, row) => sum + (row[model] || 0), 0);
-    });
-    replacementArray.push(totalRow);
-    
-    // Prepare headers and data for Excel
-    const headers = ['Issue/DA2 Model', ...sortedModels];
-    const dataRows = replacementArray.map(row => [row.issueCategory, ...sortedModels.map(model => row[model] || 0)]);
-    
-    return { headers: [headers], data: dataRows };
-}
 
-function generateDailySummaryForMonth(monthData, monthValue) {
-    if (!monthData || monthData.length === 0) return { headers: [], data: [] };
-    
-    // Group by date
-    const dailyData = {};
-    monthData.forEach(row => {
-        if (!row['Date Of Register']) return;
-        
-        const date = parseDate(row['Date Of Register']);
-        if (!date || isNaN(date)) return;
-        
-        // Format date as DD-Mon-YY
-        const dateStr = formatDateToDDMonYY(date);
-        const monthDisplay = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        
-        if (!dailyData[dateStr]) {
-            dailyData[dateStr] = {
-                month: monthDisplay,
-                date: dateStr,
-                dateObj: date, // Store date object for proper sorting
-                inProcess: 0,
-                pending: 0,
-                resolved: 0,
-                jobTotal: 0,
-                partReplaced: 0,
-                msil: 0,
-                out: 0,
-                video: 0,
-                crf: 0,
-                ftir: 0,
-                issueCK: 0,
-                issueHW: 0,
-                issueSW: 0,
-                logsVideoSuspected: 0,
-                received: 0
-            };
-        }
-        
-        const day = dailyData[dateStr];
-        day.jobTotal++;
-        
-        // Status counts
-        if (row['Status Of Job'] === 'In Process') day.inProcess++;
-        if (row['Status Of Job'] === 'Pending') day.pending++;
-        if (row['Status Of Job'] === 'Resolved') day.resolved++;
-        
-        // Part replacement counts
-        if (row['Part Replaced'] === 'Yes') day.partReplaced++;
-        if (String(row['Part Replaced']).toLowerCase().includes('msil')) day.msil++;
-        
-        // Warranty status
-        if (String(row['Warranty Status']).trim().toUpperCase() === 'OUT') day.out++;
-        
-        // Documentation counts
-        if (row['Videos'] === 'Yes') day.video++;
-        if (row['CRF'] === 'Yes') day.crf++;
-        if (row['FTIR'] === 'Yes') day.ftir++;
-        
-        // Issue type counts
-        const issueType = String(row['Type of Issue Suspected']).trim().toUpperCase();
-        if (issueType === 'CK') day.issueCK++;
-        if (issueType === 'HW') day.issueHW++;
-        if (issueType === 'SW') day.issueSW++;
-        
-        // Logs and video counts for specific categories
-        const issueCategory = String(row['Issue Category']).trim().toLowerCase();
-        if (logRequiredCategories.includes(issueCategory)) {
-            day.logsVideoSuspected++;
-        }
-        
-        if (row['Logs Taken'] === 'Yes') day.received++;
-    });
-    
-    // Convert to array and sort by date (ascending order - 1 to 31)
-    const dailyArray = Object.values(dailyData).sort((a, b) => {
-        return a.dateObj - b.dateObj; // Ascending order (oldest first)
-    });
-    
-    // Add total row
-    const totals = {
-        month: 'Total',
-        date: '',
-        dateObj: new Date(), // Dummy date for sorting
-        inProcess: dailyArray.reduce((sum, day) => sum + day.inProcess, 0),
-        pending: dailyArray.reduce((sum, day) => sum + day.pending, 0),
-        resolved: dailyArray.reduce((sum, day) => sum + day.resolved, 0),
-        jobTotal: dailyArray.reduce((sum, day) => sum + day.jobTotal, 0),
-        partReplaced: dailyArray.reduce((sum, day) => sum + day.partReplaced, 0),
-        msil: dailyArray.reduce((sum, day) => sum + day.msil, 0),
-        out: dailyArray.reduce((sum, day) => sum + day.out, 0),
-        video: dailyArray.reduce((sum, day) => sum + day.video, 0),
-        crf: dailyArray.reduce((sum, day) => sum + day.crf, 0),
-        ftir: dailyArray.reduce((sum, day) => sum + day.ftir, 0),
-        issueCK: dailyArray.reduce((sum, day) => sum + day.issueCK, 0),
-        issueHW: dailyArray.reduce((sum, day) => sum + day.issueHW, 0),
-        issueSW: dailyArray.reduce((sum, day) => sum + day.issueSW, 0),
-        logsVideoSuspected: dailyArray.reduce((sum, day) => sum + day.logsVideoSuspected, 0),
-        received: dailyArray.reduce((sum, day) => sum + day.received, 0)
-    };
-    
-    dailyArray.push(totals);
-    
-    const headers = [
-        'Month', 'Date', 'In Process', 'Pending', 'Resolved', 'Job Total',
-        'Part Replaced Service', 'MSIL', 'OUT', 'Video', 'CRF', 'FTIR',
-        'Issue Type CK', 'Issue Type HW', 'Issue Type SW',
-        'Logs & Video Suspected', 'Received'
-    ];
-    
-    const dataRows = dailyArray.map(day => [
-        day.month, day.date, day.inProcess, day.pending, day.resolved, day.jobTotal,
-        day.partReplaced, day.msil, day.out, day.video, day.crf, day.ftir,
-        day.issueCK, day.issueHW, day.issueSW, day.logsVideoSuspected, day.received
-    ]);
-    
-    return { headers: [headers], data: dataRows };
-}
-function generateTopIssuesForMonth(monthData) {
-    if (!monthData || monthData.length === 0) return { headers: [], data: [] };
-    
-    // Count issues by category
-    const issueCounts = {};
-    monthData.forEach(row => {
-        if (row['Issue Category']) {
-            const category = String(row['Issue Category']).trim();
-            if (category) {
-                const lowerCategory = category.toLowerCase();
-                issueCounts[lowerCategory] = (issueCounts[lowerCategory] || 0) + 1;
-            }
-        }
-    });
-    
-    // Convert to array and sort by count (descending)
-    const issuesArray = Object.entries(issueCounts)
-        .map(([category, count]) => ({ category, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10); // Top 10
-    
-    // Format category names (capitalize first letter of each word)
-    issuesArray.forEach(issue => {
-        issue.formattedCategory = issue.category
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    });
-    
-    const headers = [['Issue Category', 'Issue Count']];
-    const dataRows = issuesArray.map(issue => [issue.formattedCategory, issue.count]);
-    
-    return { headers, data: dataRows };
-}
-        });
-    </script>
+}); // DOMContentLoaded
+</script>
 </body>
 </html>
